@@ -44,7 +44,6 @@ void print_gauss_filter_symbol( int columns )
     }
     printf("\n");
 
-#ifdef SUPPORT_ABSOLUTE_SIGMA
     printf("    absolute filters octave 0\n");
 
     for( int lvl=0; lvl<d_gauss.required_filter_stages; lvl++ ) {
@@ -78,7 +77,6 @@ void print_gauss_filter_symbol( int columns )
             printf("\n");
     }
     printf("\n");
-#endif
 }
 
 /*************************************************************
@@ -156,7 +154,6 @@ void init_filter( const Config& conf,
         }
     }
 
-#ifdef SUPPORT_ABSOLUTE_SIGMA
     float initial_blur = 0.0f;
     if( conf.hasInitialBlur() ) {
         initial_blur = conf.getInitialBlur() * pow( 2.0, conf.getUpscaleFactor() );
@@ -178,7 +175,6 @@ void init_filter( const Config& conf,
         h_gauss.abs_span_oN[lvl]   = h_gauss.getSpan( h_gauss.abs_sigma_oN[lvl] );
         h_gauss.computeAbsBlurTable_oN( lvl, h_gauss.abs_span_oN[lvl], h_gauss.abs_sigma_oN[lvl] );
     }
-#endif // SUPPORT_ABSOLUTE_SIGMA
 
     cudaError_t err;
     err = cudaMemcpyToSymbol( d_gauss,
@@ -204,12 +200,10 @@ void GaussInfo::clearTables( )
         inc_filter[i] = 0.0f;
     }
 
-#ifdef SUPPORT_ABSOLUTE_SIGMA
     for( int i=0; i<GAUSS_ALIGN * GAUSS_LEVELS; i++ ) {
         abs_filter_o0[i] = 0.0f;
         abs_filter_oN[i] = 0.0f;
     }
-#endif // SUPPORT_ABSOLUTE_SIGMA
 }
 
 __host__
@@ -232,7 +226,6 @@ void GaussInfo::computeBlurTable( int level, int span, float sigma )
     }
 }
 
-#ifdef SUPPORT_ABSOLUTE_SIGMA
 __host__
 void GaussInfo::computeAbsBlurTable_o0( int level, int span, float sigma )
 {
@@ -262,7 +255,6 @@ void GaussInfo::computeAbsBlurTable_oN( int level, int span, float sigma )
         abs_filter_oN[level*GAUSS_ALIGN + x] /= sum;
     }
 }
-#endif // SUPPORT_ABSOLUTE_SIGMA
 
 __host__
 void GaussInfo::setSpanMode( Config::GaussMode m )

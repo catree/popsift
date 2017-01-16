@@ -10,8 +10,6 @@
 #include "sift_constants.h"
 #include "sift_conf.h"
 
-#define SUPPORT_ABSOLUTE_SIGMA
-
 namespace popsift {
 
 struct GaussInfo
@@ -27,12 +25,23 @@ struct GaussInfo
      * - in all other octaves, row 0 is unused
      */
     float inc_filter[ GAUSS_ALIGN * GAUSS_LEVELS ];
-#ifdef SUPPORT_ABSOLUTE_SIGMA
+
+    /* The sigma used to generate the Gauss table for each level.
+     * Meaning these are the differences between sigma0 and sigmaN.
+     */
+    float inc_sigma[ GAUSS_LEVELS ];
+
+    /* The span of the table that is generated for each level.
+     */
+    int inc_span[ GAUSS_LEVELS ];
+
     /* Compute the 1D Gauss tables for all levels of octave 0.
      * For octave 0, all of these tables derive from the input
      * image.
      */
     float abs_filter_o0[ GAUSS_ALIGN * GAUSS_LEVELS ];
+    float abs_sigma_o0 [ GAUSS_LEVELS ];
+    int   abs_span_o0  [ GAUSS_LEVELS ];
 
     /* Compute the 1D Gauss tables for all levels of octaves 1 and up.
      * Level 0 is empty, since it is created by other means.
@@ -40,24 +49,8 @@ struct GaussInfo
      * initial blur.
      */
     float abs_filter_oN[ GAUSS_ALIGN * GAUSS_LEVELS ];
-#endif // SUPPORT_ABSOLUTE_SIGMA
-
-    /* The sigma used to generate the Gauss table for each level.
-     * Meaning these are the differences between sigma0 and sigmaN.
-     */
-    float inc_sigma[ GAUSS_LEVELS ];
-#ifdef SUPPORT_ABSOLUTE_SIGMA
-    float abs_sigma_o0[ GAUSS_LEVELS ];
     float abs_sigma_oN[ GAUSS_LEVELS ];
-#endif // SUPPORT_ABSOLUTE_SIGMA
-
-    /* The span of the table that is generated for each level.
-     */
-    int inc_span[ GAUSS_LEVELS ];
-#ifdef SUPPORT_ABSOLUTE_SIGMA
-    int abs_span_o0[ GAUSS_LEVELS ];
-    int abs_span_oN[ GAUSS_LEVELS ];
-#endif // SUPPORT_ABSOLUTE_SIGMA
+    int   abs_span_oN[ GAUSS_LEVELS ];
 
     __host__
     void clearTables( );
@@ -65,13 +58,11 @@ struct GaussInfo
     __host__
     void computeBlurTable( int level, int span, float sigma );
 
-#ifdef SUPPORT_ABSOLUTE_SIGMA
     __host__
     void computeAbsBlurTable_o0( int level, int span, float sigma );
 
     __host__
     void computeAbsBlurTable_oN( int level, int span, float sigma );
-#endif // SUPPORT_ABSOLUTE_SIGMA
 
 public:
     __host__
