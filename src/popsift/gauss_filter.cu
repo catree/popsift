@@ -177,7 +177,6 @@ void init_filter( const Config& conf,
     h_gauss.abs_oN.computeBlurTable( &h_gauss );
 
     for( int oct=0; oct<MAX_OCTAVES; oct++ ) {
-
         // sigma * 2^i
         float oct_sigma = scalbnf( sigma0, oct );
 
@@ -187,9 +186,6 @@ void init_filter( const Config& conf,
         // sigma / 2^i
         h_gauss.dd.sigma[oct] = scalbnf( b, -oct );
         h_gauss.dd.computeBlurTable( &h_gauss );
-
-        printf("    Sigma for octave %d after downscaling %d times: %2.6f\n",
-               oct, oct, h_gauss.dd.sigma[oct] );
     }
 
     cudaError_t err;
