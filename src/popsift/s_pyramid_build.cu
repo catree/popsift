@@ -387,7 +387,7 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
     for( uint32_t octave=0; octave<_num_octaves; octave++ ) {
       Octave& oct_obj   = _octaves[octave];
 
-      if( conf.getGaussMode() == Config::Fixed4 || conf.getGaussMode() == Config::Fixed8 ) {
+      if( conf.getGaussMode() == Config::Fixed9 || conf.getGaussMode() == Config::Fixed15 ) {
         cudaStream_t stream = oct_obj.getStream(0);
         if( octave == 0 ) {
             horiz_from_input_image( conf, base, 0, stream, conf.getSiftMode() );

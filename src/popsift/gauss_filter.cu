@@ -275,9 +275,9 @@ int GaussInfo::getSpan( float sigma ) const
         return GaussInfo::vlFeatSpan( sigma );
     case Config::OpenCV_Compute :
         return GaussInfo::openCVSpan( sigma );
-    case Config::Fixed4 :
-        return 4;
-    case Config::Fixed8 :
+    case Config::Fixed9 :
+        return 5;
+    case Config::Fixed15 :
         return 8;
     default :
         cerr << __FILE__ << ":" << __LINE__ << ", ERROR: "

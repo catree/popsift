@@ -23,8 +23,8 @@ struct Config
     enum GaussMode {
         VLFeat_Compute,
         OpenCV_Compute,
-        Fixed4,
-        Fixed8
+        Fixed9,
+        Fixed15
     };
 
     enum SiftMode {

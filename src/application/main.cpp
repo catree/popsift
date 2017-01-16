@@ -49,7 +49,7 @@ static void usage( const char* argv )
          << "* Modes *" << endl
          << " --gauss-mode=<string>       Choice of span (1-sided) for Gauss filters. Default is VLFeat-like" << endl
          << "                             computation depending on sigma. Options are:" << endl
-         << "                             vlfeat, opencv, fixed4, fixed8" << endl
+         << "                             vlfeat, opencv, fixed9, fixed15" << endl
          << " --popsift-mode (default)    During the initial upscale, shift pixels by 1." << endl
          << "                             In extrema refinement, steps up to 0.6," << endl
          << "                             do not reject points when reaching max iterations," << endl

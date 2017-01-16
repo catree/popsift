@@ -64,10 +64,10 @@ void Config::setGaussMode( const std::string& m )
         setGaussMode( Config::VLFeat_Compute );
     else if( m == "opencv" )
         setGaussMode( Config::OpenCV_Compute );
-    else if( m == "fixed4" )
-        setGaussMode( Config::Fixed4 );
-    else if( m == "fixed8" )
-        setGaussMode( Config::Fixed8 );
+    else if( m == "fixed9" )
+        setGaussMode( Config::Fixed9 );
+    else if( m == "fixed15" )
+        setGaussMode( Config::Fixed15 );
     else
         POP_FATAL( "specified Gauss mode must be one of vlfeat, opencv, fixed4 or fixed8" );
 }
