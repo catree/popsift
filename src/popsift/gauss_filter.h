@@ -12,6 +12,29 @@
 
 namespace popsift {
 
+struct GaussInfo;
+
+template<int LEVELS>
+struct GaussTable
+{
+    float filter[ LEVELS * GAUSS_ALIGN ];
+
+    /* The sigma used to generate the Gauss table for each level.
+     * Meaning these are the differences between sigma0 and sigmaN.
+     */
+    float sigma [ LEVELS ];
+
+    /* The span of the table that is generated for each level.
+     */
+    int   span  [ LEVELS ];
+
+    __host__
+    void clearTables( );
+
+    __host__
+    void computeBlurTable( const GaussInfo* info );
+};
+
 struct GaussInfo
 {
     int required_filter_stages;
@@ -24,39 +47,30 @@ struct GaussInfo
      *   filter for sigma0
      * - in all other octaves, row 0 is unused
      */
-    float inc_filter[ GAUSS_ALIGN * GAUSS_LEVELS ];
-
-    /* The sigma used to generate the Gauss table for each level.
-     * Meaning these are the differences between sigma0 and sigmaN.
-     */
-    float inc_sigma[ GAUSS_LEVELS ];
-
-    /* The span of the table that is generated for each level.
-     */
-    int inc_span[ GAUSS_LEVELS ];
+    GaussTable<GAUSS_LEVELS> inc;
 
     /* Compute the 1D Gauss tables for all levels of octave 0.
      * For octave 0, all of these tables derive from the input
      * image.
      */
-    float abs_filter_o0[ GAUSS_ALIGN * GAUSS_LEVELS ];
-    float abs_sigma_o0 [ GAUSS_LEVELS ];
-    int   abs_span_o0  [ GAUSS_LEVELS ];
+    GaussTable<GAUSS_LEVELS> abs_o0;
 
     /* Compute the 1D Gauss tables for all levels of octaves 1 and up.
      * Level 0 is empty, since it is created by other means.
      * All other levels blur from level 0, not considering any
      * initial blur.
      */
-    float abs_filter_oN[ GAUSS_ALIGN * GAUSS_LEVELS ];
-    float abs_sigma_oN[ GAUSS_LEVELS ];
-    int   abs_span_oN[ GAUSS_LEVELS ];
+    GaussTable<GAUSS_LEVELS> abs_oN;
+
+    /* In theory, level 0 of octave 2 contains the same information
+     * whether it is constructed by downscaling and blurring the
+     * input image with sigma or by blurring the input image with 2*sigma
+     * and downscaling afterwards.
+     */
+    GaussTable<MAX_OCTAVES> dd;
 
     __host__
     void clearTables( );
-
-    __host__
-    void computeBlurTable( int level, int span, float sigma );
 
     __host__
     void computeAbsBlurTable_o0( int level, int span, float sigma );

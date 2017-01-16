@@ -39,7 +39,7 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int level = IDz + 1;
     const int plane_rows = IDz * h;
 
-    const float* filter = &d_gauss.abs_filter_oN[level*GAUSS_ALIGN];
+    const float* filter = &d_gauss.abs_oN.filter[level*GAUSS_ALIGN];
 
     Plane2D_float destination( w, h,
                                dst_data.ptr( plane_rows ),
@@ -114,7 +114,7 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int level = IDz;
     const int plane_rows = IDz * h;
 
-    const float* filter = &d_gauss.abs_filter_o0[level*GAUSS_ALIGN];
+    const float* filter = &d_gauss.abs_o0.filter[level*GAUSS_ALIGN];
 
     Plane2D_float destination( w, h,
                                dst_data.ptr( plane_rows ),

@@ -29,15 +29,15 @@ void print_gauss_filter_symbol( int columns )
             "    relative sigma\n" );
 
     for( int lvl=0; lvl<d_gauss.required_filter_stages; lvl++ ) {
-        int span = d_gauss.inc_span[lvl] + d_gauss.inc_span[lvl] - 1;
+        int span = d_gauss.inc.span[lvl] + d_gauss.inc.span[lvl] - 1;
 
         printf("      %d %d ", lvl, span );
-        printf("%2.6f: ", d_gauss.inc_sigma[lvl] );
-        int m = min( d_gauss.inc_span[lvl], columns );
+        printf("%2.6f: ", d_gauss.inc.sigma[lvl] );
+        int m = min( d_gauss.inc.span[lvl], columns );
         for( int x=0; x<m; x++ ) {
-            printf("%0.8f ", d_gauss.inc_filter[lvl*GAUSS_ALIGN+x] );
+            printf("%0.8f ", d_gauss.inc.filter[lvl*GAUSS_ALIGN+x] );
         }
-        if( m < d_gauss.inc_span[lvl] )
+        if( m < d_gauss.inc.span[lvl] )
             printf("...\n");
         else
             printf("\n");
@@ -47,14 +47,14 @@ void print_gauss_filter_symbol( int columns )
     printf("    absolute filters octave 0\n");
 
     for( int lvl=0; lvl<d_gauss.required_filter_stages; lvl++ ) {
-        int span = d_gauss.abs_span_o0[lvl] + d_gauss.abs_span_o0[lvl] - 1;
+        int span = d_gauss.abs_o0.span[lvl] + d_gauss.abs_o0.span[lvl] - 1;
 
-        printf("      %d %d %2.6f: ", lvl, span, d_gauss.abs_sigma_o0[lvl] );
-        int m = min( d_gauss.abs_span_o0[lvl], columns );
+        printf("      %d %d %2.6f: ", lvl, span, d_gauss.abs_o0.sigma[lvl] );
+        int m = min( d_gauss.abs_o0.span[lvl], columns );
         for( int x=0; x<m; x++ ) {
-            printf("%0.8f ", d_gauss.abs_filter_o0[lvl*GAUSS_ALIGN+x] );
+            printf("%0.8f ", d_gauss.abs_o0.filter[lvl*GAUSS_ALIGN+x] );
         }
-        if( m < d_gauss.abs_span_o0[lvl] )
+        if( m < d_gauss.abs_o0.span[lvl] )
             printf("...\n");
         else
             printf("\n");
@@ -64,14 +64,14 @@ void print_gauss_filter_symbol( int columns )
     printf("    absolute filters other octaves\n");
 
     for( int lvl=0; lvl<d_gauss.required_filter_stages; lvl++ ) {
-        int span = d_gauss.abs_span_oN[lvl] + d_gauss.abs_span_oN[lvl] - 1;
+        int span = d_gauss.abs_oN.span[lvl] + d_gauss.abs_oN.span[lvl] - 1;
 
-        printf("      %d %d %2.6f: ", lvl, span, d_gauss.abs_sigma_oN[lvl] );
-        int m = min( d_gauss.abs_span_oN[lvl], columns );
+        printf("      %d %d %2.6f: ", lvl, span, d_gauss.abs_oN.sigma[lvl] );
+        int m = min( d_gauss.abs_oN.span[lvl], columns );
         for( int x=0; x<m; x++ ) {
-            printf("%0.8f ", d_gauss.abs_filter_oN[lvl*GAUSS_ALIGN+x] );
+            printf("%0.8f ", d_gauss.abs_oN.filter[lvl*GAUSS_ALIGN+x] );
         }
-        if( m < d_gauss.abs_span_oN[lvl] )
+        if( m < d_gauss.abs_oN.span[lvl] )
             printf("...\n");
         else
             printf("\n");
@@ -126,31 +126,29 @@ void init_filter( const Config& conf,
     h_gauss.required_filter_stages = levels + 3;
 
     if( not conf.hasInitialBlur() ) {
-        h_gauss.inc_sigma[0] = sigma0;
+        h_gauss.inc.sigma[0] = sigma0;
     } else {
         const float initial_blur = conf.getInitialBlur() * pow( 2.0, conf.getUpscaleFactor() );
-        h_gauss.inc_sigma[0] = sqrt( fabsf( sigma0 * sigma0 - initial_blur * initial_blur ) );
+        h_gauss.inc.sigma[0] = sqrt( fabsf( sigma0 * sigma0 - initial_blur * initial_blur ) );
     }
 
     for( int lvl=1; lvl<h_gauss.required_filter_stages; lvl++ ) {
         const float sigmaP = sigma0 * pow( 2.0, (float)(lvl-1)/(float)levels );
         const float sigmaS = sigma0 * pow( 2.0, (float)(lvl  )/(float)levels );
 
-        h_gauss.inc_sigma[lvl] = sqrt( sigmaS * sigmaS - sigmaP * sigmaP );
+        h_gauss.inc.sigma[lvl] = sqrt( sigmaS * sigmaS - sigmaP * sigmaP );
     }
 
+    h_gauss.inc.computeBlurTable( &h_gauss );
+
     for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
-        h_gauss.inc_span[lvl]  = h_gauss.getSpan( h_gauss.inc_sigma[lvl] );
-
-        h_gauss.computeBlurTable( lvl, h_gauss.inc_span[lvl], h_gauss.inc_sigma[lvl] );
-
         if( conf.ifPrintGaussTables() ) {
             float sigmaP = sigma0 * pow( 2.0, (float)(lvl-1)/(float)levels );
             float sigmaS = sigma0 * pow( 2.0, (float)(lvl  )/(float)levels );
             if( lvl == 0 ) {
                 sigmaP = conf.getInitialBlur() * pow( 2.0, conf.getUpscaleFactor() );
             }
-            printf("    Sigma (rel) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc_sigma[lvl], sigmaS, sigmaP );
+            printf("    Sigma (rel) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc.sigma[lvl], sigmaS, sigmaP );
         }
     }
 
@@ -160,20 +158,38 @@ void init_filter( const Config& conf,
     }
     for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
         const float sigmaS = sigma0 * pow( 2.0, (float)(lvl)/(float)levels );
-        h_gauss.abs_sigma_o0[lvl]  = sqrt( fabs( sigmaS * sigmaS - initial_blur * initial_blur ) );
-        h_gauss.abs_span_o0[lvl]   = h_gauss.getSpan( h_gauss.abs_sigma_o0[lvl] );
-        h_gauss.computeAbsBlurTable_o0( lvl, h_gauss.abs_span_o0[lvl], h_gauss.abs_sigma_o0[lvl] );
+        h_gauss.abs_o0.sigma[lvl]  = sqrt( fabs( sigmaS * sigmaS - initial_blur * initial_blur ) );
+    }
 
+    h_gauss.abs_o0.computeBlurTable( &h_gauss );
+
+    for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
         if( conf.ifPrintGaussTables() ) {
-            printf("    Sigma (abs0) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.abs_sigma_o0[lvl], sigmaS, initial_blur );
+            const float sigmaS = sigma0 * pow( 2.0, (float)(lvl)/(float)levels );
+            printf("    Sigma (abs0) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.abs_o0.sigma[lvl], sigmaS, initial_blur );
         }
     }
 
     for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
         const float sigmaS = sigma0 * pow( 2.0, (float)(lvl)/(float)levels );
-        h_gauss.abs_sigma_oN[lvl]  = sigmaS;
-        h_gauss.abs_span_oN[lvl]   = h_gauss.getSpan( h_gauss.abs_sigma_oN[lvl] );
-        h_gauss.computeAbsBlurTable_oN( lvl, h_gauss.abs_span_oN[lvl], h_gauss.abs_sigma_oN[lvl] );
+        h_gauss.abs_oN.sigma[lvl]  = sigmaS;
+    }
+    h_gauss.abs_oN.computeBlurTable( &h_gauss );
+
+    for( int oct=0; oct<MAX_OCTAVES; oct++ ) {
+
+        // sigma * 2^i
+        float oct_sigma = scalbnf( sigma0, oct );
+
+        // subtract initial blur
+        float b = sqrt( fabs( oct_sigma * oct_sigma - initial_blur * initial_blur ) );
+
+        // sigma / 2^i
+        h_gauss.dd.sigma[oct] = scalbnf( b, -oct );
+        h_gauss.dd.computeBlurTable( &h_gauss );
+
+        printf("    Sigma for octave %d after downscaling %d times: %2.6f\n",
+               oct, oct, h_gauss.dd.sigma[oct] );
     }
 
     cudaError_t err;
@@ -196,64 +212,10 @@ void init_filter( const Config& conf,
 __host__
 void GaussInfo::clearTables( )
 {
-    for( int i=0; i<GAUSS_ALIGN * GAUSS_LEVELS; i++ ) {
-        inc_filter[i] = 0.0f;
-    }
-
-    for( int i=0; i<GAUSS_ALIGN * GAUSS_LEVELS; i++ ) {
-        abs_filter_o0[i] = 0.0f;
-        abs_filter_oN[i] = 0.0f;
-    }
-}
-
-__host__
-void GaussInfo::computeBlurTable( int level, int span, float sigma )
-{
-    /* Should be:
-     * kernel[x] = exp( -0.5 * (pow((x-mean)/sigma, 2.0) ) )
-     *           / sqrt(2 * M_PI * sigma * sigma);
-     * but the denominator is constant and we divide by sum anyway
-     */
-    double sum = 1.0;
-    inc_filter[level*GAUSS_ALIGN + 0] = 1.0;
-    for( int x = 1; x < span; x++ ) {
-        const float val = exp( -0.5 * (pow( double(x)/sigma, 2.0) ) );
-        inc_filter[level*GAUSS_ALIGN + x] = val;
-        sum += 2.0f * val;
-    }
-    for( int x = 0; x < span; x++ ) {
-        inc_filter[level*GAUSS_ALIGN + x] /= sum;
-    }
-}
-
-__host__
-void GaussInfo::computeAbsBlurTable_o0( int level, int span, float sigma )
-{
-    double sum = 1.0;
-    abs_filter_o0[level*GAUSS_ALIGN + 0] = 1.0;
-    for( int x = 1; x < span; x++ ) {
-        const float val = exp( -0.5 * (pow( double(x)/sigma, 2.0) ) );
-        abs_filter_o0[level*GAUSS_ALIGN + x] = val;
-        sum += 2.0f * val;
-    }
-    for( int x = 0; x < span; x++ ) {
-        abs_filter_o0[level*GAUSS_ALIGN + x] /= sum;
-    }
-}
-
-__host__
-void GaussInfo::computeAbsBlurTable_oN( int level, int span, float sigma )
-{
-    double sum = 1.0;
-    abs_filter_oN[level*GAUSS_ALIGN + 0] = 1.0;
-    for( int x = 1; x < span; x++ ) {
-        const float val = exp( -0.5 * (pow( double(x)/sigma, 2.0) ) );
-        abs_filter_oN[level*GAUSS_ALIGN + x] = val;
-        sum += 2.0f * val;
-    }
-    for( int x = 0; x < span; x++ ) {
-        abs_filter_oN[level*GAUSS_ALIGN + x] /= sum;
-    }
+    inc   .clearTables();
+    abs_o0.clearTables();
+    abs_oN.clearTables();
+    dd    .clearTables();
 }
 
 __host__
@@ -299,6 +261,44 @@ int GaussInfo::openCVSpan( float sigma )
     span >>= 1;
     span  += 1;
     return min<int>( span, GAUSS_ALIGN - 1 );
+}
+
+template<int LEVELS>
+__host__
+void GaussTable<LEVELS>::clearTables( )
+{
+    for( int i=0; i<GAUSS_ALIGN * LEVELS; i++ ) {
+        filter[i] = 0.0f;
+    }
+}
+
+template<int LEVELS>
+__host__
+void GaussTable<LEVELS>::computeBlurTable( const GaussInfo* info )
+{
+    for( int level=0; level<LEVELS; level++ ) {
+        span[level] = info->getSpan( sigma[level] );
+    }
+
+    for( int level=0; level<LEVELS; level++ ) {
+        /* Should be:
+         * kernel[x] = exp( -0.5 * (pow((x-mean)/sigma, 2.0) ) )
+         *           / sqrt(2 * M_PI * sigma * sigma);
+         * but the denominator is constant and we divide by sum anyway
+         */
+        const float sig = sigma[level];
+        const int   spn = span[level];
+        double sum = 1.0;
+        filter[level*GAUSS_ALIGN + 0] = 1.0;
+        for( int x = 1; x < spn; x++ ) {
+            const float val = exp( -0.5 * (pow( double(x)/sig, 2.0) ) );
+            filter[level*GAUSS_ALIGN + x] = val;
+            sum += 2.0f * val;
+        }
+        for( int x = 0; x < spn; x++ ) {
+            filter[level*GAUSS_ALIGN + x] /= sum;
+        }
+    }
 }
 
 } // namespace popsift
