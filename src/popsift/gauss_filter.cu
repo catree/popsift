@@ -152,7 +152,7 @@ void init_filter( const Config& conf,
             if( lvl == 0 ) {
                 sigmaP = conf.getInitialBlur() * pow( 2.0, conf.getUpscaleFactor() );
             }
-            printf("    Sigma for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc_sigma[lvl], sigmaS, sigmaP );
+            printf("    Sigma (rel) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc_sigma[lvl], sigmaS, sigmaP );
         }
     }
 
@@ -166,6 +166,10 @@ void init_filter( const Config& conf,
         h_gauss.abs_sigma_o0[lvl]  = sqrt( fabs( sigmaS * sigmaS - initial_blur * initial_blur ) );
         h_gauss.abs_span_o0[lvl]   = h_gauss.getSpan( h_gauss.abs_sigma_o0[lvl] );
         h_gauss.computeAbsBlurTable_o0( lvl, h_gauss.abs_span_o0[lvl], h_gauss.abs_sigma_o0[lvl] );
+
+        if( conf.ifPrintGaussTables() ) {
+            printf("    Sigma (abs0) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.abs_sigma_o0[lvl], sigmaS, initial_blur );
+        }
     }
 
     for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
