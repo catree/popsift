@@ -390,27 +390,22 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
       if( conf.getGaussMode() == Config::Fixed9 || conf.getGaussMode() == Config::Fixed15 ) {
         cudaStream_t stream = oct_obj.getStream(0);
         if( octave == 0 ) {
-            horiz_from_input_image( conf, base, 0, stream, conf.getSiftMode() );
-            vert_from_interm( octave, 0, stream );
-            make_octave( conf, oct_obj, stream, true );
+            make_octave( conf, base, oct_obj, stream, true );
         } else {
             downscale_from_prev_octave( octave, 0, stream, conf.getSiftMode() );
-            make_octave( conf, oct_obj, stream, false );
+            make_octave( conf, base, oct_obj, stream, false );
         }
 
         for( uint32_t level=0; level<_levels; level++ ) {
-            cudaEvent_t  ev     = oct_obj.getEventGaussDone(level);
-            cudaEvent_t  dog_ev = oct_obj.getEventDogDone(level);
-
+            cudaEvent_t  ev = oct_obj.getEventGaussDone(level);
             err = cudaEventRecord( ev, stream );
             POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
+        }
 
-            if( level > 0 ) {
-                dog_from_blurred( octave, level, stream );
-
-                err = cudaEventRecord( dog_ev, stream );
-                POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
-            }
+        for( uint32_t level=1; level<_levels; level++ ) {
+            cudaEvent_t  dog_ev = oct_obj.getEventDogDone(level);
+            err = cudaEventRecord( dog_ev, stream );
+            POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
         }
       } else {
 
