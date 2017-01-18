@@ -250,7 +250,7 @@ inline void Pyramid::horiz_from_input_image( const Config& conf, Image* base, in
     float shift  = 0.5f;
 
     if( octave == 0 && ( mode == Config::PopSift || mode == Config::VLFeat ) ) {
-        shift  = 0.5f * powf( 2.0f, conf.getUpscaleFactor() );
+        shift  = 0.5f * powf( 2.0f, conf.getUpscaleFactor() - octave );
     }
 
     gauss::variableSpan::relativeTexAddress::horiz
