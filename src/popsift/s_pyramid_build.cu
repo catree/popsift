@@ -403,7 +403,14 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
         if( octave == 0 ) {
             make_octave( conf, base, oct_obj, stream, true );
         } else {
-            downscale_from_prev_octave( octave, 0, stream, conf.getSiftMode() );
+            if( conf.getScalingMode() == Config::ScaleDirect ) {
+                horiz_from_input_image( conf, base, octave, stream,
+                                        conf.getSiftMode() );
+                vert_from_interm( octave, 0, stream );
+            } else { // Config::ScaleDefault
+                downscale_from_prev_octave( octave, 0, stream,
+                                            conf.getSiftMode() );
+            }
             make_octave( conf, base, oct_obj, stream, false );
         }
 
@@ -437,17 +444,13 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
                 }
                 else
                 {
-                    switch( conf.getScalingMode() )
-                    {
-                    case Config::ScaleDirect :
-                        // Does not work yet
-                        horiz_from_input_image( conf, base, octave, stream, conf.getSiftMode() );
+                    if( conf.getScalingMode() == Config::ScaleDirect ) {
+                        horiz_from_input_image( conf, base, octave, stream,
+                                                conf.getSiftMode() );
                         vert_from_interm( octave, level, stream );
-                        break;
-                    case Config::ScaleDefault :
-                    default :
-                        downscale_from_prev_octave( octave, level, stream, conf.getSiftMode() );
-                        break;
+                    } else { // Config::ScaleDefault
+                        downscale_from_prev_octave( octave, level, stream,
+                                                    conf.getSiftMode() );
                     }
                 }
             }
