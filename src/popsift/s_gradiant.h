@@ -60,3 +60,27 @@ inline float2 get_gradiant( uint32_t       x,
     return make_float2( 0.0f, 0.0f );
 }
 
+__device__
+inline void get_gradiant( float&         grad,
+                          float&         theta,
+                          uint32_t       x,
+                          uint32_t       y,
+                          cudaTextureObject_t layer )
+{
+    float dx = tex2D<float>( layer, x+1, y ) - tex2D<float>( layer, x-1, y );
+    float dy = tex2D<float>( layer, x, y+1 ) - tex2D<float>( layer, x, y-1 );
+    grad     = hypotf( dx, dy );
+    theta    = atan2f(dy, dx);
+}
+
+__device__
+inline float2 get_gradiant( uint32_t       x,
+                            uint32_t       y,
+                            cudaTextureObject_t layer )
+{
+    float dx = tex2D<float>( layer, x+1, y ) - tex2D<float>( layer, x-1, y );
+    float dy = tex2D<float>( layer, x, y+1 ) - tex2D<float>( layer, x, y-1 );
+    return make_float2( hypotf( dx, dy ),
+                        atan2f(dy, dx) );
+}
+
