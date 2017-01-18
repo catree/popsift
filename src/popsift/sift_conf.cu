@@ -21,7 +21,7 @@ Config::Config( )
     , _gauss_mode( Config::VLFeat_Compute )
     , _sift_mode( Config::PopSift )
     , _log_mode( Config::None )
-    , scaling_mode( Config::ScaleDefault )
+    , _scaling_mode( Config::ScaleDefault )
     , verbose( false )
     , _max_extrema( 10000 )
     , _assume_initial_blur( true )
@@ -89,7 +89,7 @@ Config::LogMode Config::getLogMode( ) const
 
 void Config::setScalingMode( ScalingMode mode )
 {
-    scaling_mode = mode;
+    _scaling_mode = mode;
 }
 
 void Config::setDownsampling( float v ) { _upscale_factor = -v; }
@@ -154,7 +154,7 @@ bool Config::equal( const Config& other ) const
         COMPARE( _edge_limit ) ||
         COMPARE( _threshold ) ||
         COMPARE( _upscale_factor ) ||
-        COMPARE( scaling_mode ) ||
+        COMPARE( _scaling_mode ) ||
         COMPARE( _max_extrema ) ||
         COMPARE( _gauss_mode ) ||
         COMPARE( _sift_mode ) ||

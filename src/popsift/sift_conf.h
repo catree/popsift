@@ -133,6 +133,12 @@ struct Config
         return _max_extrema;
     }
 
+    // check if we use direct downscaling from input image
+    // for all octaves
+    inline ScalingMode getScalingMode() const {
+        return _scaling_mode;
+    }
+
     bool equal( const Config& other ) const;
 
 private:
@@ -152,10 +158,10 @@ private:
     // default LogMode::None
     LogMode  _log_mode;
 
-public:
     // default: ScalingMode::DownscaledOctaves
-    ScalingMode scaling_mode;
+    ScalingMode _scaling_mode;
 
+public:
     bool     verbose;
 
 private:

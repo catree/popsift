@@ -149,9 +149,19 @@ inline void horiz( cudaTextureObject_t src_data,
 __global__
 void horiz( cudaTextureObject_t src_data,
             Plane2D_float       dst_data,
+            int                 octave,
             float               shift )
 {
-    horiz( src_data, dst_data, shift, d_gauss.inc.span[0], &d_gauss.inc.filter[0*GAUSS_ALIGN] );
+    // The first line creates level-0 octave-0 for the input image only.
+    // Since we are computing the direct-downscaling gauss filter tables
+    // and the first entry in that table is identical to the "normal"
+    // table, we do not need a special case.
+    // horiz( src_data, dst_data, shift, d_gauss.inc.span[0], &d_gauss.inc.filter[0*GAUSS_ALIGN] );
+    horiz( src_data,
+           dst_data,
+           shift,
+           d_gauss.dd.span[octave],
+           &d_gauss.dd.filter[octave*GAUSS_ALIGN] );
 }
 
 } // namespace relativeTexAddress
@@ -247,6 +257,7 @@ inline void Pyramid::horiz_from_input_image( const Config& conf, Image* base, in
         <<<grid,block,0,stream>>>
         ( base->getInputTexture(),
           oct_obj.getIntermediateData( ),
+          octave,
           shift );
 }
 
@@ -426,7 +437,7 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
                 }
                 else
                 {
-                    switch( _scaling_mode )
+                    switch( conf.getScalingMode() )
                     {
                     case Config::ScaleDirect :
                         // Does not work yet

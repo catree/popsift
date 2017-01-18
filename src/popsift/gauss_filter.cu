@@ -77,6 +77,23 @@ void print_gauss_filter_symbol( int columns )
             printf("\n");
     }
     printf("\n");
+
+    printf("    level 0-filters for direct downscaling\n");
+
+    for( int lvl=0; lvl<MAX_OCTAVES; lvl++ ) {
+        int span = d_gauss.dd.span[lvl] + d_gauss.dd.span[lvl] - 1;
+
+        printf("      %d %d %2.6f: ", lvl, span, d_gauss.dd.sigma[lvl] );
+        int m = min( d_gauss.dd.span[lvl], columns );
+        for( int x=0; x<m; x++ ) {
+            printf("%0.8f ", d_gauss.dd.filter[lvl*GAUSS_ALIGN+x] );
+        }
+        if( m < d_gauss.dd.span[lvl] )
+            printf("...\n");
+        else
+            printf("\n");
+    }
+    printf("\n");
 }
 
 /*************************************************************
@@ -148,7 +165,7 @@ void init_filter( const Config& conf,
             if( lvl == 0 ) {
                 sigmaP = conf.getInitialBlur() * pow( 2.0, conf.getUpscaleFactor() );
             }
-            printf("    Sigma (rel) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc.sigma[lvl], sigmaS, sigmaP );
+            // printf("    Sigma (rel) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.inc.sigma[lvl], sigmaS, sigmaP );
         }
     }
 
@@ -166,7 +183,7 @@ void init_filter( const Config& conf,
     for( int lvl=0; lvl<h_gauss.required_filter_stages; lvl++ ) {
         if( conf.ifPrintGaussTables() ) {
             const float sigmaS = sigma0 * pow( 2.0, (float)(lvl)/(float)levels );
-            printf("    Sigma (abs0) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.abs_o0.sigma[lvl], sigmaS, initial_blur );
+            // printf("    Sigma (abs0) for level %d: %2.6f = sqrt(sigmaS(%2.6f)^2 - sigmaP(%2.6f)^2)\n", lvl, h_gauss.abs_o0.sigma[lvl], sigmaS, initial_blur );
         }
     }
 
