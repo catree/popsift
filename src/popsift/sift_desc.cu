@@ -21,10 +21,11 @@ using namespace popsift;
 using namespace std;
 
 inline __device__
-void keypoint_descriptors_sub( const float     ang,
-                               const Extremum* ext,
-                               Descriptor*     desc,
-                               Plane2D_float   layer )
+void keypoint_descriptors_sub( const float         ang,
+                               const Extremum*     ext,
+                               Descriptor*         desc,
+                               Plane2D_float       layer,
+                               cudaTextureObject_t layer_tex )
 {
     const int width  = layer.getWidth();
     const int height = layer.getHeight();
@@ -88,7 +89,8 @@ void keypoint_descriptors_sub( const float     ang,
         const float nxn = fabsf(nx);
         const float nyn = fabsf(ny);
         if (nxn < 1.0f && nyn < 1.0f) {
-            const float2 mod_th = get_gradiant( jj, ii, layer );
+            // const float2 mod_th = get_gradiant( jj, ii, layer );
+            const float2 mod_th = get_gradiant( jj, ii, layer_tex );
             const float& mod    = mod_th.x;
             float        th     = mod_th.y;
 
@@ -143,10 +145,11 @@ void keypoint_descriptors_sub( const float     ang,
 }
 
 __global__
-void keypoint_descriptors( Extremum*     extrema,
-                           Descriptor*   descs,
-                           int*          feat_to_ext_map,
-                           Plane2D_float layer )
+void keypoint_descriptors( Extremum*           extrema,
+                           Descriptor*         descs,
+                           int*                feat_to_ext_map,
+                           Plane2D_float       layer,
+                           cudaTextureObject_t layer_tex )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];
@@ -159,7 +162,8 @@ void keypoint_descriptors( Extremum*     extrema,
     keypoint_descriptors_sub( ang,
                               ext,
                               desc,
-                              layer );
+                              layer,
+                              layer_tex );
 }
 
 __global__
@@ -320,13 +324,14 @@ void normalize_histogram( Descriptor* descs, int num_orientations )
 }
 
 #if __CUDA_ARCH__ > 350
-__global__ void descriptor_starter( int*          extrema_counter,
-                                    int*          featvec_counter,
-                                    Extremum*     extrema,
-                                    Descriptor*   descs,
-                                    int*          feat_to_ext_map,
-                                    Plane2D_float layer,
-                                    bool          use_root_sift )
+__global__ void descriptor_starter( int*                extrema_counter,
+                                    int*                featvec_counter,
+                                    Extremum*           extrema,
+                                    Descriptor*         descs,
+                                    int*                feat_to_ext_map,
+                                    Plane2D_float       layer,
+                                    cudaTextureObject_t layer_tex,
+                                    bool                use_root_sift )
 {
     dim3 block;
     dim3 grid;
@@ -343,7 +348,8 @@ __global__ void descriptor_starter( int*          extrema_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          layer );
+          layer,
+          layer_tex );
 
     // it may be good to start more threads, but this kernel
     // is too fast to be noticable in profiling
@@ -364,13 +370,14 @@ __global__ void descriptor_starter( int*          extrema_counter,
     }
 }
 #else // __CUDA_ARCH__ > 350
-__global__ void descriptor_starter( int*          extrema_counter,
-                                    int*          featvec_counter,
-                                    Extremum*     extrema,
-                                    Descriptor*   descs,
-                                    int*          feat_to_ext_map,
-                                    Plane2D_float layer,
-                                    bool          use_root_sift )
+__global__ void descriptor_starter( int*                extrema_counter,
+                                    int*                featvec_counter,
+                                    Extremum*           extrema,
+                                    Descriptor*         descs,
+                                    int*                feat_to_ext_map,
+                                    Plane2D_float       layer,
+                                    cudaTextureObject_t layer_tex,
+                                    bool                use_root_sift )
 {
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
 }
@@ -399,6 +406,7 @@ void Pyramid::descriptors( const Config& conf )
                       oct_obj.getDescriptors( level ),
                       oct_obj.getFeatToExtMapD( level ),
                       oct_obj.getData( level ),
+                      oct_obj._data_tex[level],
                       conf.getUseRootSift() );
             }
         }
@@ -442,7 +450,8 @@ void Pyramid::descriptors( const Config& conf )
                         ( oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getData( level ) );
+                          oct_obj.getData( level ),
+                          oct_obj._data_tex[level] );
 
                     grid.x  = grid_divide( oct_obj.getFeatVecCountH( level ), 32 );
                     block.x = 32;

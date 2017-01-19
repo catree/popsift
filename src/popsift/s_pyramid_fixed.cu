@@ -125,7 +125,7 @@ void octave_fixed( cudaTextureObject_t src_data,
 
     const float dst_w  = w;
     const float dst_h  = h;
-    const float r_x_ko = ( idx-SPAN+tshift ) / dst_w;
+    const float r_x_ko = ( idx-SHIFT+tshift ) / dst_w;
 
     /* This thread reads from cell IDx - SHIFT */
     float       val    = tex2D<float>( src_data,
@@ -171,7 +171,10 @@ void octave_fixed( cudaTextureObject_t src_data,
             destination.ptr(idy)[idx] = val;
 
             if( IDz > 0 ) {
-                const float dogval = val - lx_val[IDy][IDx][IDz-1];
+                float dogval = val - lx_val[IDy][IDx][IDz-1];
+                if(IDx==1) dogval=0;
+                // left side great
+                // right side buggy
                 surf2DLayeredwrite( dogval, dog_data,
                                     idx*4, idy,
                                     threadIdx.z-1,
