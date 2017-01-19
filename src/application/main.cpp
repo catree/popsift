@@ -36,8 +36,8 @@ static void parseargs(int argc, char** argv, popsift::Config& config, string& in
     {
         options.add_options()
             ("help,h", "Print usage")
-            ("verbose,v", bool_switch()->notifier([&](bool) {config.setVerbose(); }), "")
-            ("log,l", bool_switch()->notifier([&](bool) {config.setLogMode(popsift::Config::All); }), "Write debugging files")
+            ("verbose,v", bool_switch()->notifier([&](bool i) {if(i) config.setVerbose(); }), "")
+            ("log,l", bool_switch()->notifier([&](bool i) {if(i) config.setLogMode(popsift::Config::All); }), "Write debugging files")
 
             ("input-file,i", value<std::string>(&inputFile)->required(), "Input file");
     
