@@ -21,6 +21,69 @@ namespace gauss {
 
 namespace fixedSpan {
 
+template<int SHIFT>
+__device__
+inline float octave_fixed_horiz( float fval, const float* filter )
+{
+    /* Example:
+     * SHIFT is 4
+     * input  fval of thread N is extracted from image index N-4
+     * output fval of thread N should be filtered sum from N-4 to N+4
+     */
+    float out = fval * filter[0];
+    #pragma unroll
+    for( int i=1; i<=SHIFT; i++ ) {
+        float val  = __shfl_up( fval, i ) + __shfl_down( fval, i );
+        out += val * filter[i];
+    }
+
+    fval = __shfl_down( out, SHIFT );
+
+    return fval;
+}
+
+template<int SHIFT>
+__device__
+inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, const float* filter )
+{
+    /* Input thread N takes as input the (idx,idy) position of the pixel that it
+     * will eventually write (The 2*SHIFT rightmost threads will not write anything).
+     * Thread N computes and returns the vertical filter at position N-SHIFT.
+     */
+    const float TSHIFT = 0.5f;
+    float       val    = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+TSHIFT );
+
+    float       fval   = val * filter[0];
+    #pragma unroll
+    for( int i=1; i<=SHIFT; i++ ) {
+        val   = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy-i+TSHIFT )
+              + tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+i+TSHIFT );
+        fval += val * filter[i];
+    }
+
+    return fval;
+}
+
+template<int SHIFT>
+__device__
+inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, const float mul_w, const float mul_h, float tshift, const float* filter )
+{
+    /* Like above, but reading uses relative input image positions */
+    const float xpos = ( idx - SHIFT + tshift ) * mul_w;
+    const float ypos = ( idy + tshift ) * mul_h;
+    float       val  = tex2D<float>( src_data, xpos, ypos );
+
+    float       fval = val * filter[0];
+    #pragma unroll
+    for( int i=1; i<=SHIFT; i++ ) {
+        val  = tex2D<float>( src_data, xpos, ypos - i * mul_h );
+        val += tex2D<float>( src_data, xpos, ypos + i * mul_h );
+        fval += val * filter[i];
+    }
+
+    return fval;
+}
+
 namespace absoluteTexAddress {
 /* read from point-addressable texture of image from previous octave */
 
@@ -33,7 +96,6 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int IDx   = threadIdx.x;
     const int IDy   = threadIdx.y;
     const int IDz   = threadIdx.z;
-    const int SPAN  = SHIFT + 1;
     const int w     = dst_data.getWidth();
     const int h     = dst_data.getHeight();
     const int level = IDz + 1;
@@ -48,42 +110,30 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int idx = blockIdx.x * WIDTH      + IDx;
     const int idy = blockIdx.y * blockDim.y + IDy;
 
-    const float TSHIFT = 0.5f;
-    float       val    = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+TSHIFT );
+    float fval;
+    
+    fval = octave_fixed_vert<SHIFT>( src_data, idx, idy, filter );
 
-    float       fval   = val * filter[0];
-    #pragma unroll
-    for( int i=1; i<SPAN; i++ ) {
-        val   = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy-i+TSHIFT )
-              + tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+i+TSHIFT );
-        fval += val * filter[i];
-    }
-
-    float out = fval * filter[0];
-    #pragma unroll
-    for( int i=1; i<SPAN; i++ ) {
-        val  = __shfl_up( fval, i ) + __shfl_down( fval, i );
-        out += val * filter[i];
-    }
-    val = __shfl_down( out, SHIFT );
+    fval = octave_fixed_horiz<SHIFT>( fval, filter );
 
     __shared__ float lx_val[HEIGHT][WIDTH][LEVELS];
 
     if( IDx < WIDTH ) {
-        lx_val[IDy][IDx][IDz] = val;
+        lx_val[IDy][IDx][IDz] = fval;
     }
     __syncthreads();
 
     if( IDx < WIDTH ) {
+        const float TSHIFT = 0.5f;
         const float l0_val = tex2D<float>( src_data, idx+TSHIFT, idy+TSHIFT );
         const float dogval = ( IDz == 0 )
-                           ? val - l0_val
-                           : val - lx_val[IDy][IDx][IDz-1];
+                           ? fval - l0_val
+                           : fval - lx_val[IDy][IDx][IDz-1];
 
         const bool i_write = ( idx < w && idy < h );
 
         if( i_write ) {
-            destination.ptr(idy)[idx] = val;
+            destination.ptr(idy)[idx] = fval;
 
             surf2DLayeredwrite( dogval, dog_data,
                                 idx*4, idy,
@@ -108,7 +158,6 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int IDx   = threadIdx.x;
     const int IDy   = threadIdx.y;
     const int IDz   = threadIdx.z;
-    const int SPAN  = SHIFT + 1;
     const int w     = dst_data.getWidth();
     const int h     = dst_data.getHeight();
     const int level = IDz;
@@ -123,63 +172,36 @@ void octave_fixed( cudaTextureObject_t src_data,
     const int idx = blockIdx.x * WIDTH      + IDx;
     const int idy = blockIdx.y * blockDim.y + IDy;
 
-    const float dst_w  = w;
-    const float dst_h  = h;
-    const float r_x_ko = ( idx-SHIFT+tshift ) / dst_w;
+    const float mul_w  = __frcp_rn( float(w) );
+    const float mul_h  = __frcp_rn( float(h) );
+    float fval;
 
-    /* This thread reads from cell IDx - SHIFT */
-    float       val    = tex2D<float>( src_data,
-                                       r_x_ko,
-                                       ( idy+tshift ) / dst_h );
+    fval = octave_fixed_vert<SHIFT>( src_data, idx, idy, mul_w, mul_h, tshift, filter );
 
-    /* Filter in Y-direction first */
-    float       fval   = val * filter[0];
-    #pragma unroll
-    for( int i=1; i<SPAN; i++ ) {
-        val   = tex2D<float>( src_data,
-                              r_x_ko,
-                              ( idy-i+tshift ) / dst_h )
-              + tex2D<float>( src_data,
-                              r_x_ko,
-                              ( idy+i+tshift ) / dst_h );
-        fval += val * filter[i];
-    }
+    fval = octave_fixed_horiz<SHIFT>( fval, filter );
 
-    /* Filter in X-direction afterards */
-    float out = fval * filter[0];
-    #pragma unroll
-    for( int i=1; i<SPAN; i++ ) {
-        val  = __shfl_up( fval, i ) + __shfl_down( fval, i );
-        out += val * filter[i];
-    }
-    val = __shfl_down( out, SHIFT+1 );
-
-    val *= 255.0f; // don't forget to upscale
+    fval *= 255.0f; // don't forget to upscale
 
     __shared__ float lx_val[HEIGHT][WIDTH][LEVELS];
 
     if( IDx < WIDTH ) {
-        lx_val[IDy][IDx][IDz] = val;
+        lx_val[IDy][IDx][IDz] = fval;
     }
     __syncthreads();
 
-    if( IDx < WIDTH ) {
+    const bool i_write = ( idx < w && idy < h );
 
-        const bool i_write = ( idx < w && idy < h );
+    if( IDx < WIDTH && i_write ) {
+            destination.ptr(idy)[idx] = fval;
 
-        if( i_write ) {
-            destination.ptr(idy)[idx] = val;
-
-            if( IDz > 0 ) {
-                float dogval = val - lx_val[IDy][IDx][IDz-1];
-                if(IDx==1) dogval=0;
-                // left side great
-                // right side buggy
-                surf2DLayeredwrite( dogval, dog_data,
-                                    idx*4, idy,
-                                    threadIdx.z-1,
-                                    cudaBoundaryModeZero );
-            }
+        if( IDz > 0 ) {
+            float dogval = fval - lx_val[IDy][IDx][IDz-1];
+            // left side great
+            // right side buggy
+            surf2DLayeredwrite( dogval, dog_data,
+                                idx*4, idy,
+                                threadIdx.z-1,
+                                cudaBoundaryModeZero );
         }
     }
 }
@@ -201,13 +223,16 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
         const int x_size = 32;
         const int l_conf = LEVELS;
         const int w_conf = x_size - 2 * SHIFT;
-        const int h_conf = 1024 / ( x_size * l_conf );
+        const int h_conf = 1; // 1024 / ( x_size * l_conf );
         dim3 block( x_size, h_conf, l_conf );
         dim3 grid;
         grid.x = grid_divide( width, w_conf );
         grid.y = grid_divide( height, block.y );
 
         assert( block.x * block.y * block.z < 1024 );
+        
+        cerr << "calling relative with " << block.x * block.y * block.z << " threads per block" << endl
+             << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
 
         const float tshift = 0.5f * powf( 2.0f, conf.getUpscaleFactor() );
 
@@ -229,6 +254,9 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
         grid.y = grid_divide( height, block.y );
 
         assert( block.x * block.y * block.z < 1024 );
+
+        cerr << "calling absolute with " << block.x * block.y * block.z << " threads per block" << endl
+             << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
 
         gauss::fixedSpan::absoluteTexAddress::octave_fixed
             <SHIFT,w_conf,h_conf,l_conf>

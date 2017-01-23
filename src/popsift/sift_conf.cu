@@ -69,7 +69,7 @@ void Config::setGaussMode( const std::string& m )
     else if( m == "fixed15" )
         setGaussMode( Config::Fixed15 );
     else
-        POP_FATAL( "specified Gauss mode must be one of vlfeat, opencv, fixed4 or fixed8" );
+        POP_FATAL( "specified Gauss mode must be one of vlfeat, opencv, fixed9 or fixed15" );
 }
 
 void Config::setVerbose( bool on )
