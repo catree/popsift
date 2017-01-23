@@ -65,12 +65,25 @@ void keypoint_descriptors_sub( const float         ang,
     const float ptx = ::fmaf( csbp, offsetptx, ::fmaf( -ssbp, offsetpty, x ) );
     const float pty = ::fmaf( csbp, offsetpty, ::fmaf(  ssbp, offsetptx, y ) );
 
-    const float bsz = fabsf(csbp) + fabsf(ssbp);
+    /* At this point, we have the 16 centers (ptx,pty) of the 16 sections
+     * of the SIFT descriptor.  */
 
-    const int xmin = max(1,          (int)floorf(ptx - bsz));
-    const int ymin = max(1,          (int)floorf(pty - bsz));
-    const int xmax = min(width - 2,  (int)floorf(ptx + bsz));
-    const int ymax = min(height - 2, (int)floorf(pty + bsz));
+    const float bsz = fabsf(csbp) + fabsf(ssbp);
+    const int   xmin = max(1,          (int)floorf(ptx - bsz));
+    const int   ymin = max(1,          (int)floorf(pty - bsz));
+    const int   xmax = min(width - 2,  (int)floorf(ptx + bsz));
+    const int   ymax = min(height - 2, (int)floorf(pty + bsz));
+
+    /* At this point, we have upright (unrotated) squares around the 16
+     * points. These are meant o limit the search for pixels that are actually
+     * inside the rotated square.
+     * If we assume that sampling around in the rotated box is sufficient,
+     * we uniformly sample points and let CUDA texture access solve the
+     * location of the actual pixel by nearest neighbour search.
+     * We could also try the linear interpolation method, hoping that
+     * get_gradiant still returns feasible values. Note that these 2 ideas
+     * should both be tested.
+     */
 
     const int wx = xmax - xmin + 1;
     const int hy = ymax - ymin + 1;
