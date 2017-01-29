@@ -10,24 +10,10 @@
 using namespace popsift;
 using namespace std;
 
-__global__
-void normalize_histogram_l2( Descriptor* descs, int num_orientations )
+__device__ static inline
+void normalize_histogram_l2( int offset, float* features, int num_orientations )
 {
-    // OpenCV normalization
-
-    int offset = blockIdx.x * 32 + threadIdx.y;
-
-    // all of these threads are useless
-    if( blockIdx.x * 32 >= num_orientations ) return;
-
-    bool ignoreme = ( offset >= num_orientations );
-
-    offset = ( offset < num_orientations ) ? offset
-                                           : num_orientations-1;
-    Descriptor* desc = &descs[offset];
-
-    float*  ptr1 = desc->features;
-    float4* ptr4 = (float4*)ptr1;
+    float4* ptr4 = (float4*)features;
 
     float4 descr;
     descr = ptr4[threadIdx.x];
@@ -99,8 +85,25 @@ void normalize_histogram_l2( Descriptor* descs, int num_orientations )
     descr.z = descr.z * norm;
     descr.w = descr.w * norm;
 
+    const bool ignoreme = ( offset >= num_orientations );
+
     if( not ignoreme ) {
         ptr4[threadIdx.x] = descr;
     }
+}
+
+__global__
+void normalize_histogram_l2( Descriptor* descs, int num_orientations )
+{
+    int offset = blockIdx.x * 32 + threadIdx.y;
+
+    // all of these threads are useless
+    if( blockIdx.x * 32 >= num_orientations ) return;
+
+    offset = ( offset < num_orientations ) ? offset
+                                           : num_orientations-1;
+    Descriptor* desc = &descs[offset];
+
+    normalize_histogram_l2( offset, desc->features, num_orientations );
 }
 
