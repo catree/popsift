@@ -22,6 +22,7 @@ Config::Config( )
     , _sift_mode( Config::PopSift )
     , _log_mode( Config::None )
     , _scaling_mode( Config::ScaleDefault )
+    , _desc_mode( Config::Loop )
     , verbose( false )
     , _max_extrema( 10000 )
     , _assume_initial_blur( true )
@@ -56,6 +57,23 @@ void Config::setMode( Config::SiftMode m )
 void Config::setGaussMode( Config::GaussMode m )
 {
     _gauss_mode = m;
+}
+
+void Config::setDescMode( const std::string& text )
+{
+    if( text == "loop" )
+        setDescMode( Config::Loop );
+    else if( text == "grid" )
+        setDescMode( Config::Grid );
+    else if( text == "igrid" )
+        setDescMode( Config::IGrid );
+    else
+        POP_FATAL( "specified descriptor extraction mode must be one of loop, grid or igrid" );
+}
+
+void Config::setDescMode( Config::DescMode m )
+{
+    _desc_mode = m;
 }
 
 void Config::setGaussMode( const std::string& m )

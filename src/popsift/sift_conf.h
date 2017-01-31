@@ -45,12 +45,21 @@ struct Config
         ScaleDefault // Indirect - only working method
     };
 
+    /* Modes for descriptor extraction: */
+    enum DescMode {
+        Loop,        // scan horizontal, extract valid points
+        Grid,        // scan in rotated mode, round pixel address
+        IGrid        // scan in rotated mode, interpolate with tex engine
+    };
+
     void setGaussMode( const std::string& m );
     void setGaussMode( GaussMode m );
     void setMode( SiftMode m );
     void setLogMode( LogMode mode = All );
     void setScalingMode( ScalingMode mode = ScaleDefault );
     void setVerbose( bool on = true );
+    void setDescMode( const std::string& byname );
+    void setDescMode( DescMode mode = Loop );
 
     void setGaussGroup( int groupsize );
     int  getGaussGroup( ) const;
@@ -140,6 +149,10 @@ struct Config
         return _scaling_mode;
     }
 
+    inline DescMode getDescMode() const {
+        return _desc_mode;
+    }
+
     bool equal( const Config& other ) const;
 
 private:
@@ -161,6 +174,9 @@ private:
 
     // default: ScalingMode::DownscaledOctaves
     ScalingMode _scaling_mode;
+
+    // default: DescMode::Loop
+    DescMode    _desc_mode;
 
 public:
     bool     verbose;

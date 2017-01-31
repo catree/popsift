@@ -28,11 +28,11 @@
  * every first level of every octave ... which is not compatible
  * behaviour.
  */
-__device__
-inline void get_gradiant( float&         grad,
-                          float&         theta,
-                          uint32_t       x,
-                          uint32_t       y,
+__device__ static inline
+void get_gradiant( float& grad,
+                          float& theta,
+                          int    x,
+                          int    y,
                           popsift::Plane2D_float& layer )
 {
     grad  = 0.0f;
@@ -46,9 +46,9 @@ inline void get_gradiant( float&         grad,
 }
 
 // float2 x=grad, y=theta
-__device__
-inline float2 get_gradiant( uint32_t       x,
-                            uint32_t       y,
+__device__ static inline
+float2 get_gradiant( int x,
+                            int y,
                             popsift::Plane2D_float& layer )
 {
     if( x > 0 && x < layer.getCols()-1 && y > 0 && y < layer.getRows()-1 ) {
@@ -60,26 +60,32 @@ inline float2 get_gradiant( uint32_t       x,
     return make_float2( 0.0f, 0.0f );
 }
 
-__device__
-inline void get_gradiant( float&         grad,
-                          float&         theta,
-                          uint32_t       x,
-                          uint32_t       y,
-                          cudaTextureObject_t layer )
+__device__ static inline
+float gradiant_fetch( int x, int y, cudaTextureObject_t layer )
 {
-    float dx = tex2D<float>( layer, x+1, y ) - tex2D<float>( layer, x-1, y );
-    float dy = tex2D<float>( layer, x, y+1 ) - tex2D<float>( layer, x, y-1 );
+    return tex2D<float>( layer, x+0.5f, y+0.5f );
+}
+
+__device__ static inline
+void get_gradiant( float& grad,
+                   float& theta,
+                   int    x,
+                   int    y,
+                   cudaTextureObject_t layer )
+{
+    float dx = gradiant_fetch( layer, x+1, y ) - gradiant_fetch( layer, x-1, y );
+    float dy = gradiant_fetch( layer, x, y+1 ) - gradiant_fetch( layer, x, y-1 );
     grad     = hypotf( dx, dy );
     theta    = atan2f(dy, dx);
 }
 
-__device__
-inline float2 get_gradiant( uint32_t       x,
-                            uint32_t       y,
-                            cudaTextureObject_t layer )
+__device__ static inline
+float2 get_gradiant( int x,
+                     int y,
+                     cudaTextureObject_t layer )
 {
-    float dx = tex2D<float>( layer, x+1, y ) - tex2D<float>( layer, x-1, y );
-    float dy = tex2D<float>( layer, x, y+1 ) - tex2D<float>( layer, x, y-1 );
+    float dx = gradiant_fetch( layer, x+1, y ) - gradiant_fetch( layer, x-1, y );
+    float dy = gradiant_fetch( layer, x, y+1 ) - gradiant_fetch( layer, x, y-1 );
     return make_float2( hypotf( dx, dy ),
                         atan2f(dy, dx) );
 }
