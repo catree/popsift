@@ -26,9 +26,9 @@ void ext_desc_loop( const float         ang,
     const int width  = layer.getWidth();
     const int height = layer.getHeight();
 
-    // int bidx = blockIdx.x & 0xf; // lower 4 bits of block ID
-    const int ix   = threadIdx.y; // bidx & 0x3;       // lower 2 bits of block ID
-    const int iy   = threadIdx.z; // bidx >> 2;        // next lowest 2 bits of block ID
+    const int ix   = threadIdx.y;
+    const int iy   = threadIdx.z;
+    const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
@@ -82,13 +82,12 @@ void ext_desc_loop( const float         ang,
     const int wx = xmax - xmin + 1;
     const int hy = ymax - ymin + 1;
     const int loops = wx * hy;
-
-    float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-
     if( int(x)==177 && int(y)==591 && threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 )
     {
         printf("Found pixel (%d,%d)\n", int(x), int(y));
     }
+
+    float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     for( int i = threadIdx.x; i < loops; i+=blockDim.x )
     {
@@ -130,12 +129,11 @@ void ext_desc_loop( const float         ang,
             const float wgt2 = do0;
 
             int fo  = fo0 % DESC_BINS;
-            // if(fo < 8) {
+
                 // maf: multiply-add
                 // _ru - round to positive infinity equiv to froundf since always >=0
             dpt[fo]   = __fmaf_ru( wgt1, wgt, dpt[fo] );   // dpt[fo]   += (wgt1*wgt);
             dpt[fo+1] = __fmaf_ru( wgt2, wgt, dpt[fo+1] ); // dpt[fo+1] += (wgt2*wgt);
-            // }
         }
         __syncthreads();
     }
@@ -152,12 +150,8 @@ void ext_desc_loop( const float         ang,
         dpt[i]  = __shfl     ( dpt[i], 0 );
     }
 
-    // int hid    = blockIdx.x % 16;
-    // int offset = hid*8;
-    int offset = ( ( ( threadIdx.z << 2 ) + threadIdx.y ) << 3 ); // ( ( threadIdx.z * 4 ) + threadIdx.y ) * 8;
-
     if( threadIdx.x < 8 ) {
-        features[offset+threadIdx.x] = dpt[threadIdx.x];
+        features[tile+threadIdx.x] = dpt[threadIdx.x];
     }
 }
 

@@ -61,7 +61,7 @@ float2 get_gradiant( int x,
 }
 
 __device__ static inline
-float gradiant_fetch( int x, int y, cudaTextureObject_t layer )
+float gradiant_fetch( cudaTextureObject_t layer, int x, int y )
 {
     return tex2D<float>( layer, x+0.5f, y+0.5f );
 }

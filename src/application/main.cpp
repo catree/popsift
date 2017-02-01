@@ -151,7 +151,6 @@ int main(int argc, char **argv)
 
     std::ofstream of( "output-features.txt" );
     feature_list->print( of, write_as_uchar );
-    // of << *feature_list;
     delete feature_list;
 
     delete [] image_data;

@@ -7,6 +7,7 @@
  */
 #include "sift_extremum.h"
 #include <iomanip>
+#include <iostream>
 
 namespace popsift {
 

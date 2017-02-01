@@ -26,9 +26,9 @@ void ext_desc_grid( const float         ang,
     const int width  = layer.getWidth();
     const int height = layer.getHeight();
 
-    // int bidx = blockIdx.x & 0xf; // lower 4 bits of block ID
-    const int ix   = threadIdx.y; // bidx & 0x3;       // lower 2 bits of block ID
-    const int iy   = threadIdx.z; // bidx >> 2;        // next lowest 2 bits of block ID
+    const int ix   = threadIdx.y;
+    const int iy   = threadIdx.z;
+    const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
@@ -106,7 +106,7 @@ void ext_desc_grid( const float         ang,
     for( int yd=0; yd<16; yd++ )
     // for( int i = threadIdx.x; i < loops; i+=blockDim.x )
     {
-        float2 pixo = lft_dn + xd * rgt_stp + yd * up__stp;
+        float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
         pix = round( pt + pix ) - pt;
         pixo = pix / SBP;
@@ -118,12 +118,14 @@ void ext_desc_grid( const float         ang,
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
 
-        const float2 dn       = norm_pix + offset;
-        const float ww  = expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3)); // expf(-0.125f * (dnx*dnx + dny*dny));
-        const float2 w = make_float2( 1.0f - fabsf(norm_pix.x),
-                                      1.0f - fabsf(norm_pix.y) );
-        const float wgt = ww * w.x * w.y * mod;
+        const float2 dn  = norm_pix + offset;
+        const float  ww  = expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3)); // expf(-0.125f * (dnx*dnx + dny*dny));
+        const float2 w   = make_float2( 1.0f - fabsf(norm_pix.x),
+                                        1.0f - fabsf(norm_pix.y) );
 
+        if( w.x < 0.0f || w.y < 0.0f ) continue;
+
+        const float  wgt = ww * w.x * w.y * mod;
     if( int(x)==177 && int(y)==591 )
     {
         int jj = int((pt+pix).x);
@@ -152,16 +154,13 @@ void ext_desc_grid( const float         ang,
     /* reduction here */
     for (int i = 0; i < 8; i++) {
         // dpt[i] += __shfl_down( dpt[i], 16 );
-        dpt[i] += __shfl_down( dpt[i], 8 );
-        dpt[i] += __shfl_down( dpt[i], 4 );
-        dpt[i] += __shfl_down( dpt[i], 2 );
-        dpt[i] += __shfl_down( dpt[i], 1 );
-        dpt[i]  = __shfl     ( dpt[i], 0 );
+        dpt[i] += __shfl_down( dpt[i], 8, 16 );
+        dpt[i] += __shfl_down( dpt[i], 4, 16 );
+        dpt[i] += __shfl_down( dpt[i], 2, 16 );
+        dpt[i] += __shfl_down( dpt[i], 1, 16 );
+        dpt[i]  = __shfl     ( dpt[i], 0, 16 );
     }
 
-    // int hid  = blockIdx.x % 16;
-    // int tile = hid*8;
-    int tile = ( ( ( threadIdx.z << 2 ) + threadIdx.y ) << 3 ); // ( ( threadIdx.z * 4 ) + threadIdx.y ) * 8;
 
     if( threadIdx.x < 8 ) {
         features[tile+threadIdx.x] = dpt[threadIdx.x];
