@@ -17,12 +17,17 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_grid( const float         ang,
+void ext_desc_igrid( const float         ang,
                     const Extremum*     ext,
                     float* __restrict__ features,
-                    Plane2D_float       layer,
                     cudaTextureObject_t layer_tex )
 {
+    if( threadIdx.x == 0 && threadIdx.y ==0 && threadIdx.z == 0 ) {
+        for( int i=0; i<128; i++ ) {
+            features[i] = 0.0f;
+        }
+    }
+    __syncthreads();
 
     // const int width  = layer.getWidth();
     // const int height = layer.getHeight();
@@ -36,6 +41,11 @@ void ext_desc_grid( const float         ang,
     const float sig  = ext->sigma;
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 
+// 354.4 665.41 dist 466 scale 0.932 neighbist 511.56
+if( threadIdx.x==0 && threadIdx.y==0 && threadIdx.z==0 && x>708 && x<712 )
+{
+    printf("Point at %.2f %.2f\n", x/2, y/2 );
+}
     if( SBP == 0 ) {
         return;
     }
@@ -47,11 +57,8 @@ void ext_desc_grid( const float         ang,
     const float csbp  = cos_t * SBP;
     const float ssbp  = sin_t * SBP;
 
-    // const float offsetptx = ix - 1.5f;
-    // const float offsetpty = iy - 1.5f;
     const float2 offset = make_float2( ix - 1.5f, iy - 1.5f );
 
-    // The following 2 lines were the primary bottleneck of this kernel
     // const float ptx = csbp * offsetptx - ssbp * offsetpty + x;
     // const float pty = csbp * offsetpty + ssbp * offsetptx + y;
     // const float ptx = ::fmaf( csbp, offsetptx, ::fmaf( -ssbp, offsetpty, x ) );
@@ -70,22 +77,17 @@ void ext_desc_grid( const float         ang,
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-    if( int(x)==177 && int(y)==591 && threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 )
-    {
-        printf("Found pixel (%d,%d)\n", int(x), int(y));
-    }
-
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
     {
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
-        pix = round( pt + pix ) - pt;
-        pixo = pix / SBP;
+        // pix = round( pt + pix ) - pt;
+        // pixo = pix / SBP;
 
         float mod;
         float th;
-        get_gradiant( mod, th, int((pt+pix).x), int((pt+pix).y), layer_tex );
+        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, layer_tex );
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
@@ -98,12 +100,24 @@ void ext_desc_grid( const float         ang,
         if( w.x < 0.0f || w.y < 0.0f ) continue;
 
         const float  wgt = ww * w.x * w.y * mod;
-    if( int(x)==177 && int(y)==591 )
-    {
-        int jj = int((pt+pix).x);
-        int ii = int((pt+pix).y);
-        printf("center pixel (%.2f,%.2f) ang %.2f check pixel (%d,%d) mod %.2f th %.2f ww %.2f wgt %.2f (GRID)\n", x, y, ang, jj, ii, mod, th, ww, wgt );
-    }
+
+// 354.4 665.41 dist 466 scale 0.932 neighbist 511.56
+if( int(x)==354 && int(y)==665 && tile==0 )
+{
+    int jj = int((pt+pix).x);
+    int ii = int((pt+pix).y);
+    printf(
+            "check pixel (%d,%d) "
+            "tile %d "
+            "offset (%.2f,%.2f) "
+            // "ang %.2f mod %.2f th %.2f ww %.2f wgt %.2f "
+            "(IGRID)\n",
+             jj, ii,
+             tile,
+             offset.x, offset.y
+             // , ang, mod, th, ww, wgt
+             );
+}
 
         th -= ang;
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
@@ -140,10 +154,9 @@ void ext_desc_grid( const float         ang,
 }
 
 __global__
-void ext_desc_grid( Extremum*           extrema,
+void ext_desc_igrid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    Plane2D_float       layer,
                     cudaTextureObject_t layer_tex )
 {
     const int   offset   = blockIdx.x;
@@ -154,10 +167,9 @@ void ext_desc_grid( Extremum*           extrema,
     const int   ext_num  = offset - ext_base;
     const float ang      = ext->orientation[ext_num];
 
-    ext_desc_grid( ang,
-                   ext,
-                   desc->features,
-                   layer,
-                   layer_tex );
+    ext_desc_igrid( ang,
+                    ext,
+                    desc->features,
+                    layer_tex );
 }
 

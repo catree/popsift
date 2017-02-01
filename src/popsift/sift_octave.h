@@ -44,10 +44,9 @@ class Octave
         cudaEvent_t*  _extrema_done;
 
         cudaTextureObject_t* _data_tex;
-    public:
+        cudaTextureObject_t* _data_tex_linear;
         cudaTextureObject_t  _interm_data_tex;
 
-    private:
         /* It seems strange strange to collect extrema globally only
          * as other code does.
          * Because of the global cut-off, features from the later
@@ -120,6 +119,12 @@ class Octave
             return _extrema_done[level];
         }
 
+        inline cudaTextureObject_t getIntermDataTexPoint( ) {
+            return _interm_data_tex;
+        }
+        inline cudaTextureObject_t getDataTexLinear( int level ) {
+            return _data_tex_linear[level];
+        }
         inline cudaTextureObject_t getDataTexPoint( int level ) {
             return _data_tex[level];
         }

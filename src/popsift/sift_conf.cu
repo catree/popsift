@@ -5,8 +5,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+#include <iostream>
 #include "sift_conf.h"
 #include "common/debug_macros.h"
+
+using namespace std;
 
 namespace popsift
 {
@@ -117,8 +120,14 @@ void Config::setSigma( float v ) { sigma = v; }
 void Config::setEdgeLimit( float v ) { _edge_limit = v; }
 void Config::setThreshold( float v ) { _threshold = v; }
 void Config::setPrintGaussTables() { _print_gauss_tables = true; }
-void Config::setDPOrientation( bool onoff ) { _dp_orientation = onoff; }
-void Config::setDPDescriptors( bool onoff ) { _dp_descriptors = onoff; }
+void Config::setDPOrientation( bool onoff )
+{
+    _dp_orientation = onoff;
+}
+void Config::setDPDescriptors( bool onoff )
+{
+    _dp_descriptors = onoff;
+}
 void Config::setUseRootSift( bool on ) { _use_root_sift = on; }
 void Config::setNormalizationMultiplier( int mul ) { _normalization_multiplier = mul; }
 

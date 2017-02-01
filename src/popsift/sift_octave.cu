@@ -459,7 +459,7 @@ namespace popsift {
         data_tex_desc.addressMode[1] = cudaAddressModeClamp;
         data_tex_desc.addressMode[2] = cudaAddressModeClamp;
         data_tex_desc.readMode = cudaReadModeElementType; // read as float
-        data_tex_desc.filterMode = cudaFilterModeLinear; // bilinear interpolation
+        data_tex_desc.filterMode = cudaFilterModePoint; // bilinear interpolation
 
         memset(&data_res_desc, 0, sizeof(cudaResourceDesc));
         data_res_desc.resType = cudaResourceTypePitch2D;
@@ -479,6 +479,35 @@ namespace popsift {
                 &data_tex_desc, 0);
             POP_CUDA_FATAL_TEST(err, "Could not create texture object: ");
         }
+
+        _data_tex_linear = new cudaTextureObject_t[_levels];
+
+        memset(&data_tex_desc, 0, sizeof(cudaTextureDesc));
+        data_tex_desc.normalizedCoords = 0; // addressed (x,y) in [width,height]
+        data_tex_desc.addressMode[0] = cudaAddressModeClamp;
+        data_tex_desc.addressMode[1] = cudaAddressModeClamp;
+        data_tex_desc.addressMode[2] = cudaAddressModeClamp;
+        data_tex_desc.readMode = cudaReadModeElementType; // read as float
+        data_tex_desc.filterMode = cudaFilterModeLinear; // bilinear interpolation
+
+        memset(&data_res_desc, 0, sizeof(cudaResourceDesc));
+        data_res_desc.resType = cudaResourceTypePitch2D;
+        data_res_desc.res.pitch2D.desc.f = cudaChannelFormatKindFloat;
+        data_res_desc.res.pitch2D.desc.x = 32;
+        data_res_desc.res.pitch2D.desc.y = 0;
+        data_res_desc.res.pitch2D.desc.z = 0;
+        data_res_desc.res.pitch2D.desc.w = 0;
+        for (int i = 0; i<_levels; i++) {
+            data_res_desc.res.pitch2D.devPtr = _data[i].data;
+            data_res_desc.res.pitch2D.pitchInBytes = _data[i].step;
+            data_res_desc.res.pitch2D.width = _data[i].getCols();
+            data_res_desc.res.pitch2D.height = _data[i].getRows();
+
+            err = cudaCreateTextureObject(&_data_tex_linear[i],
+                &data_res_desc,
+                &data_tex_desc, 0);
+            POP_CUDA_FATAL_TEST(err, "Could not create texture object: ");
+        }
     }
 
     void Octave::free_data_tex()
@@ -491,6 +520,12 @@ namespace popsift {
         }
 
         delete[] _data_tex;
+
+        for (int i = 0; i<_levels; i++) {
+            err = cudaDestroyTextureObject(_data_tex_linear[i]);
+            POP_CUDA_FATAL_TEST(err, "Could not destroy texture object: ");
+        }
+        delete[] _data_tex_linear;
     }
 
     void Octave::alloc_interm_plane()
