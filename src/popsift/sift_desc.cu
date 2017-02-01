@@ -77,7 +77,6 @@ __global__ void ext_desc_grid_starter( int*                extrema_counter,
                                        Extremum*           extrema,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
-                                       Plane2D_float       layer,
                                        cudaTextureObject_t layer_tex,
                                        bool                use_root_sift )
 {
@@ -96,7 +95,6 @@ __global__ void ext_desc_grid_starter( int*                extrema_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          layer,
           layer_tex );
 
     grid.x  = grid_divide( *featvec_counter, 32 );
@@ -171,7 +169,6 @@ __global__ void ext_desc_grid_starter( int*                extrema_counter,
                                        Extremum*           extrema,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
-                                       Plane2D_float       layer,
                                        cudaTextureObject_t layer_tex,
                                        bool                use_root_sift )
 {
@@ -238,7 +235,6 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getData( level ),
                           oct_obj.getDataTexPoint( level ),
                           conf.getUseRootSift() );
                 } else if( conf.getDescMode() == Config::IGrid ) {
@@ -307,7 +303,6 @@ void Pyramid::descriptors( const Config& conf )
                             ( oct_obj.getExtrema( level ),
                               oct_obj.getDescriptors( level ),
                               oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getData( level ),
                               oct_obj.getDataTexPoint( level ) );
                     } else if( conf.getDescMode() == Config::IGrid ) {
                         block.x = 16;

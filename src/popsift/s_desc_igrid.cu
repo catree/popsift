@@ -22,16 +22,6 @@ void ext_desc_igrid( const float         ang,
                     float* __restrict__ features,
                     cudaTextureObject_t layer_tex )
 {
-    if( threadIdx.x == 0 && threadIdx.y ==0 && threadIdx.z == 0 ) {
-        for( int i=0; i<128; i++ ) {
-            features[i] = 0.0f;
-        }
-    }
-    __syncthreads();
-
-    // const int width  = layer.getWidth();
-    // const int height = layer.getHeight();
-
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
@@ -41,11 +31,6 @@ void ext_desc_igrid( const float         ang,
     const float sig  = ext->sigma;
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 
-// 354.4 665.41 dist 466 scale 0.932 neighbist 511.56
-if( threadIdx.x==0 && threadIdx.y==0 && threadIdx.z==0 && x>708 && x<712 )
-{
-    printf("Point at %.2f %.2f\n", x/2, y/2 );
-}
     if( SBP == 0 ) {
         return;
     }
@@ -82,6 +67,8 @@ if( threadIdx.x==0 && threadIdx.y==0 && threadIdx.z==0 && x>708 && x<712 )
     {
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
+
+        // avoiding to round positions is the biggest difference between IGrid and Grid
         // pix = round( pt + pix ) - pt;
         // pixo = pix / SBP;
 
@@ -100,24 +87,6 @@ if( threadIdx.x==0 && threadIdx.y==0 && threadIdx.z==0 && x>708 && x<712 )
         if( w.x < 0.0f || w.y < 0.0f ) continue;
 
         const float  wgt = ww * w.x * w.y * mod;
-
-// 354.4 665.41 dist 466 scale 0.932 neighbist 511.56
-if( int(x)==354 && int(y)==665 && tile==0 )
-{
-    int jj = int((pt+pix).x);
-    int ii = int((pt+pix).y);
-    printf(
-            "check pixel (%d,%d) "
-            "tile %d "
-            "offset (%.2f,%.2f) "
-            // "ang %.2f mod %.2f th %.2f ww %.2f wgt %.2f "
-            "(IGRID)\n",
-             jj, ii,
-             tile,
-             offset.x, offset.y
-             // , ang, mod, th, ww, wgt
-             );
-}
 
         th -= ang;
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;

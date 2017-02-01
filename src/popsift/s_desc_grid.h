@@ -18,6 +18,5 @@ __global__
 void ext_desc_grid( popsift::Extremum*     extrema,
                     popsift::Descriptor*   descs,
                     int*                   feat_to_ext_map,
-                    popsift::Plane2D_float layer,
                     cudaTextureObject_t    layer_tex );
 

@@ -20,13 +20,8 @@ __device__ static inline
 void ext_desc_grid( const float         ang,
                     const Extremum*     ext,
                     float* __restrict__ features,
-                    Plane2D_float       layer,
                     cudaTextureObject_t layer_tex )
 {
-
-    // const int width  = layer.getWidth();
-    // const int height = layer.getHeight();
-
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
@@ -47,8 +42,6 @@ void ext_desc_grid( const float         ang,
     const float csbp  = cos_t * SBP;
     const float ssbp  = sin_t * SBP;
 
-    // const float offsetptx = ix - 1.5f;
-    // const float offsetpty = iy - 1.5f;
     const float2 offset = make_float2( ix - 1.5f, iy - 1.5f );
 
     // The following 2 lines were the primary bottleneck of this kernel
@@ -69,11 +62,6 @@ void ext_desc_grid( const float         ang,
     // const float2 up__stp = ( lft_up - lft_dn ) / 16.0f;
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
-
-    if( int(x)==177 && int(y)==591 && threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 )
-    {
-        printf("Found pixel (%d,%d)\n", int(x), int(y));
-    }
 
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
@@ -98,12 +86,6 @@ void ext_desc_grid( const float         ang,
         if( w.x < 0.0f || w.y < 0.0f ) continue;
 
         const float  wgt = ww * w.x * w.y * mod;
-    if( int(x)==177 && int(y)==591 )
-    {
-        int jj = int((pt+pix).x);
-        int ii = int((pt+pix).y);
-        printf("center pixel (%.2f,%.2f) ang %.2f check pixel (%d,%d) mod %.2f th %.2f ww %.2f wgt %.2f (GRID)\n", x, y, ang, jj, ii, mod, th, ww, wgt );
-    }
 
         th -= ang;
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
@@ -143,7 +125,6 @@ __global__
 void ext_desc_grid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    Plane2D_float       layer,
                     cudaTextureObject_t layer_tex )
 {
     const int   offset   = blockIdx.x;
@@ -157,7 +138,6 @@ void ext_desc_grid( Extremum*           extrema,
     ext_desc_grid( ang,
                    ext,
                    desc->features,
-                   layer,
                    layer_tex );
 }
 

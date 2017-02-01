@@ -59,33 +59,15 @@ void ext_desc_loop( const float         ang,
     const float ptx = ::fmaf( csbp, offsetpt.x, ::fmaf( -ssbp, offsetpt.y, x ) );
     const float pty = ::fmaf( csbp, offsetpt.y, ::fmaf(  ssbp, offsetpt.x, y ) );
 
-    /* At this point, we have the 16 centers (ptx,pty) of the 16 sections
-     * of the SIFT descriptor.  */
-
     const float bsz = fabsf(csbp) + fabsf(ssbp);
     const int   xmin = max(1,          (int)floorf(ptx - bsz));
     const int   ymin = max(1,          (int)floorf(pty - bsz));
     const int   xmax = min(width - 2,  (int)floorf(ptx + bsz));
     const int   ymax = min(height - 2, (int)floorf(pty + bsz));
 
-    /* At this point, we have upright (unrotated) squares around the 16
-     * points. These are meant o limit the search for pixels that are actually
-     * inside the rotated square.
-     * If we assume that sampling around in the rotated box is sufficient,
-     * we uniformly sample points and let CUDA texture access solve the
-     * location of the actual pixel by nearest neighbour search.
-     * We could also try the linear interpolation method, hoping that
-     * get_gradiant still returns feasible values. Note that these 2 ideas
-     * should both be tested.
-     */
-
     const int wx = xmax - xmin + 1;
     const int hy = ymax - ymin + 1;
     const int loops = wx * hy;
-    if( int(x)==177 && int(y)==591 && threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 )
-    {
-        printf("Found pixel (%d,%d)\n", int(x), int(y));
-    }
 
     float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -102,21 +84,16 @@ void ext_desc_loop( const float         ang,
                                       ::fmaf( crsbp, d.y, -srsbp * d.x ) );
         const float2 nn = abs(n);
         if (nn.x < 1.0f && nn.y < 1.0f) {
-            // const float2 mod_th = get_gradiant( jj, ii, layer );
             const float2 mod_th = get_gradiant( jj, ii, layer_tex );
             const float& mod    = mod_th.x;
             float        th     = mod_th.y;
 
             const float2 dn = n + offsetpt;
-            const float  ww = __expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3)); // speedup !
+            const float  ww = __expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3));
             // const float ww  = __expf(-0.125f * (dnx*dnx + dny*dny)); // speedup !
             const float2 w  = make_float2( 1.0f - nn.x,
                                            1.0f - nn.y );
             const float wgt = ww * w.x * w.y * mod;
-    if( int(x)==177 && int(y)==591 )
-    {
-        printf("center pixel (%.2f,%.2f) ang %.2f check pixel (%d,%d) mod %.2f th %.2f ww %.2f wgt %.2f (LOOP)\n", x, y, ang, jj, ii, mod, th, ww, wgt );
-    }
 
             th -= ang;
             th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
