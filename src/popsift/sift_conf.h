@@ -49,7 +49,8 @@ struct Config
     enum DescMode {
         Loop,        // scan horizontal, extract valid points
         Grid,        // scan in rotated mode, round pixel address
-        IGrid        // scan in rotated mode, interpolate with tex engine
+        IGrid,       // scan in rotated mode, interpolate with tex engine
+        PLGrid       // preload gradiants, else like Grid
     };
 
     void setGaussMode( const std::string& m );

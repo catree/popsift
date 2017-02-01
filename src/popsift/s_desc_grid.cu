@@ -17,13 +17,13 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_grid( const float         ang,
-                    const Extremum*     ext,
-                    float* __restrict__ features,
-                    cudaTextureObject_t layer_tex )
+void ext_desc_grid_sub( const int           ix,
+                        const int           iy,
+                        const float         ang,
+                        const Extremum*     ext,
+                        float* __restrict__ features,
+                        cudaTextureObject_t layer_tex )
 {
-    const int ix   = threadIdx.y;
-    const int iy   = threadIdx.z;
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
     const float x    = ext->xpos;
@@ -125,9 +125,13 @@ __global__
 void ext_desc_grid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
+                    int                 featvec_counter,
                     cudaTextureObject_t layer_tex )
 {
+    const int   ix       = threadIdx.y;
+    const int   iy       = threadIdx.z;
     const int   offset   = blockIdx.x;
+
     Descriptor* desc     = &descs[offset];
     const int   ext_idx  = feat_to_ext_map[offset];
     Extremum*   ext      = &extrema[ext_idx];
@@ -135,9 +139,11 @@ void ext_desc_grid( Extremum*           extrema,
     const int   ext_num  = offset - ext_base;
     const float ang      = ext->orientation[ext_num];
 
-    ext_desc_grid( ang,
-                   ext,
-                   desc->features,
-                   layer_tex );
+    ext_desc_grid_sub( ix,
+                       iy,
+                       ang,
+                       ext,
+                       desc->features,
+                       layer_tex );
 }
 

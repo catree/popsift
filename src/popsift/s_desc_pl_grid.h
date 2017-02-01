@@ -15,9 +15,8 @@
  * grid  = nunmber of orientations
  */
 __global__
-void ext_desc_grid( popsift::Extremum*     extrema,
-                    popsift::Descriptor*   descs,
-                    int*                   feat_to_ext_map,
-                    int                    featvec_counter,
-                    cudaTextureObject_t    layer_tex );
+void ext_desc_pl_grid( popsift::Extremum*     extrema,
+                       popsift::Descriptor*   descs,
+                       int*                   feat_to_ext_map,
+                       cudaTextureObject_t    layer_tex );
 

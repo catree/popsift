@@ -54,11 +54,11 @@ void horiz( cudaTextureObject_t src_data,
     dst_data.ptr(blockIdx.y)[off_x] = out;
 }
 
-__device__
-inline void vert( cudaTextureObject_t src_data,
-                  Plane2D_float       dst_data,
-                  int                 span,
-                  float*              filter )
+__device__ static inline
+void vert_sub( cudaTextureObject_t src_data,
+               Plane2D_float       dst_data,
+               int                 span,
+               float*              filter )
 {
     const int dst_w = dst_data.getWidth();
     const int dst_h = dst_data.getHeight();
@@ -103,7 +103,7 @@ void vert( cudaTextureObject_t src_data,
            Plane2D_float       dst_data,
            int                 level )
 {
-    vert( src_data, dst_data, d_gauss.inc.span[level], &popsift::d_gauss.inc.filter[level*GAUSS_ALIGN] );
+    vert_sub( src_data, dst_data, d_gauss.inc.span[level], &popsift::d_gauss.inc.filter[level*GAUSS_ALIGN] );
 }
 
 } // namespace absoluteTexAddress
@@ -111,11 +111,11 @@ void vert( cudaTextureObject_t src_data,
 namespace relativeTexAddress {
 
 __device__
-inline void horiz( cudaTextureObject_t src_data,
-                   Plane2D_float       dst_data,
-                   float               shift,
-                   int                 span,
-                   float*              filter )
+inline static void horiz_sub( cudaTextureObject_t src_data,
+                              Plane2D_float       dst_data,
+                              float               shift,
+                              int                 span,
+                              float*              filter )
 {
     const float dst_w  = dst_data.getWidth();
     const float dst_h  = dst_data.getHeight();
@@ -157,11 +157,11 @@ void horiz( cudaTextureObject_t src_data,
     // and the first entry in that table is identical to the "normal"
     // table, we do not need a special case.
     // horiz( src_data, dst_data, shift, d_gauss.inc.span[0], &d_gauss.inc.filter[0*GAUSS_ALIGN] );
-    horiz( src_data,
-           dst_data,
-           shift,
-           d_gauss.dd.span[octave],
-           &d_gauss.dd.filter[octave*GAUSS_ALIGN] );
+    horiz_sub( src_data,
+               dst_data,
+               shift,
+               d_gauss.dd.span[octave],
+               &d_gauss.dd.filter[octave*GAUSS_ALIGN] );
 }
 
 } // namespace relativeTexAddress

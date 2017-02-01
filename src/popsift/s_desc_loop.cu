@@ -17,11 +17,11 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_loop( const float         ang,
-                    const Extremum*     ext,
-                    float* __restrict__ features,
-                    Plane2D_float       layer,
-                    cudaTextureObject_t layer_tex )
+void ext_desc_loop_sub( const float         ang,
+                        const Extremum*     ext,
+                        float* __restrict__ features,
+                        Plane2D_float       layer,
+                        cudaTextureObject_t layer_tex )
 {
     const int width  = layer.getWidth();
     const int height = layer.getHeight();
@@ -147,10 +147,10 @@ void ext_desc_loop( Extremum*           extrema,
     const int   ext_num  = offset - ext_base;
     const float ang      = ext->orientation[ext_num];
 
-    ext_desc_loop( ang,
-                   ext,
-                   desc->features,
-                   layer,
-                   layer_tex );
+    ext_desc_loop_sub( ang,
+                       ext,
+                       desc->features,
+                       layer,
+                       layer_tex );
 }
 

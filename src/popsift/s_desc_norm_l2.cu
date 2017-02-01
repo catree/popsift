@@ -11,7 +11,7 @@ using namespace popsift;
 using namespace std;
 
 __device__ static inline
-void normalize_histogram_l2( int offset, float* features, int num_orientations )
+void normalize_histogram_l2_sub( int offset, float* features, int num_orientations )
 {
     float4* ptr4 = (float4*)features;
 
@@ -104,6 +104,6 @@ void normalize_histogram_l2( Descriptor* descs, int num_orientations )
                                            : num_orientations-1;
     Descriptor* desc = &descs[offset];
 
-    normalize_histogram_l2( offset, desc->features, num_orientations );
+    normalize_histogram_l2_sub( offset, desc->features, num_orientations );
 }
 
