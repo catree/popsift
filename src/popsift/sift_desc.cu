@@ -108,7 +108,7 @@ void Pyramid::descriptors( const Config& conf )
                       oct_obj.getDescriptors( level ),
                       oct_obj.getFeatToExtMapD( level ),
                       oct_obj.getData( level ),
-                      oct_obj._data_tex[level],
+                      oct_obj.getDataTexPoint( level ),
                       conf.getUseRootSift() );
             }
         }
@@ -154,7 +154,7 @@ void Pyramid::descriptors( const Config& conf )
                               oct_obj.getDescriptors( level ),
                               oct_obj.getFeatToExtMapD( level ),
                               oct_obj.getData( level ),
-                              oct_obj._data_tex[level] );
+                              oct_obj.getDataTexPoint( level ) );
                     } else if( conf.getDescMode() == Config::Grid ) {
                         block.x = 16;
                         block.y = 4;
@@ -166,7 +166,7 @@ void Pyramid::descriptors( const Config& conf )
                               oct_obj.getDescriptors( level ),
                               oct_obj.getFeatToExtMapD( level ),
                               oct_obj.getData( level ),
-                              oct_obj._data_tex[level] );
+                              oct_obj.getDataTexPoint( level ) );
                     } else {
                         POP_FATAL( "not yet" );
                     }

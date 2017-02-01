@@ -43,8 +43,8 @@ class Octave
         cudaEvent_t*  _dog_done;
         cudaEvent_t*  _extrema_done;
 
-    public:
         cudaTextureObject_t* _data_tex;
+    public:
         cudaTextureObject_t  _interm_data_tex;
 
     private:
@@ -120,6 +120,9 @@ class Octave
             return _extrema_done[level];
         }
 
+        inline cudaTextureObject_t getDataTexPoint( int level ) {
+            return _data_tex[level];
+        }
         inline Plane2D_float& getData( int level ) {
             return _data[level];
         }

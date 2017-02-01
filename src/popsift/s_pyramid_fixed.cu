@@ -261,7 +261,7 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
         gauss::fixedSpan::absoluteTexAddress::octave_fixed
             <SHIFT,w_conf,h_conf,l_conf>
             <<<grid,block,0,stream>>>
-            ( oct_obj._data_tex[0],
+            ( oct_obj.getDataTexPoint(0),
               oct_obj.getData(1),
               oct_obj.getDogSurface( ) );
     }
