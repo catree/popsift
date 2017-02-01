@@ -81,9 +81,9 @@ static void parseargs(int argc, char** argv, popsift::Config& config, string& in
         ("root-sift", bool_switch()->notifier([&](bool b) { if(b) config.setUseRootSift(true); }),
         "Use the L1-based norm for OpenMVG rather than L2-based as in OpenCV")
         ("norm-multi", value<int>()->notifier([&](int i) {config.setNormalizationMultiplier(i); }), "Multiply the descriptor by pow(2,<int>).")
-        ("dp-off", bool_switch()->notifier([&](bool b) { if(b) config.setDPOrientation(false); config.setDPDescriptors(false); }), "Switch all CUDA Dynamic Parallelism off.")
+        ("dp-off", bool_switch()->notifier([&](bool b) { if(b) { config.setDPOrientation(false); config.setDPDescriptors(false); } }), "Switch all CUDA Dynamic Parallelism off.")
         ("dp-ori-off", bool_switch()->notifier([&](bool b) { if(b) config.setDPOrientation(false); }), "Switch DP off for orientation computation")
-        ("dp-desc-off", bool_switch()->notifier([&](bool b) { if(b) config.setDPDescriptors(false); }), "Switch DP off for descriptor computation");
+        ("dp-desc-off", bool_switch()->notifier([&](bool b) { if(b) { config.setDPDescriptors(false); } }), "Switch DP off for descriptor computation");
 
     }
     options_description informational("Informational");
