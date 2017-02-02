@@ -72,6 +72,8 @@ void Config::setDescMode( const std::string& text )
         setDescMode( Config::IGrid );
     else if( text == "plgrid" )
         setDescMode( Config::PLGrid );
+    else if( text == "pligrid" )
+        setDescMode( Config::PLIGrid );
     else
         POP_FATAL( "specified descriptor extraction mode must be one of loop, grid or igrid" );
 }

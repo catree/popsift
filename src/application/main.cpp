@@ -61,7 +61,7 @@ static void parseargs(int argc, char** argv, popsift::Config& config, string& in
         ("gauss-mode", value<std::string>()->notifier([&](const std::string& s) { config.setGaussMode(s); }),
         "Choice of span (1-sided) for Gauss filters. Default is VLFeat-like computation depending on sigma. Options are: vlfeat, opencv, fixed4, fixed8")
         ("desc-mode", value<std::string>()->notifier([&](const std::string& s) { config.setDescMode(s); }),
-        "Choice of descriptor extraction modes. Default is OpenCV-like horizontal scan, computing only valid points (loop), grid extracts only useful points but rounds them, igrid extracts useful points and relies on linear interpolation textures, plgrid preloads gradiants and follows grid. Options are: loop, grid, igrid, plgrid")
+        "Choice of descriptor extraction modes. Default is OpenCV-like horizontal scan, computing only valid points (loop), grid extracts only useful points but rounds them, igrid extracts useful points and relies on linear interpolation textures, plgrid preloads gradiants and follows grid. Options are: loop, grid, igrid, plgrid, pligrid")
         ("popsift-mode", bool_switch()->notifier([&](bool b) { if(b) config.setMode(popsift::Config::PopSift); }),
         "During the initial upscale, shift pixels by 1. In extrema refinement, steps up to 0.6, do not reject points when reaching max iterations, "
         "first contrast threshold is .8 * peak thresh. Shift feature coords octave 0 back to original pos.")

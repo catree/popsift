@@ -17,6 +17,7 @@
 #include "s_desc_grid.h"
 #include "s_desc_igrid.h"
 #include "s_desc_pl_grid.h"
+#include "s_desc_pl_igrid.h"
 #include "assist.h"
 #include "common/debug_macros.h"
 
@@ -168,11 +169,51 @@ __global__ void ext_desc_plgrid_starter( int*                extrema_counter,
 
     if( grid.x == 0 ) return;
 
-    block.x = 16;
+    block.x = 32;
     block.y = 4;
     block.z = 4;
 
     ext_desc_pl_grid
+        <<<grid,block>>>
+        ( extrema,
+          descs,
+          feat_to_ext_map,
+          layer_tex );
+
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+}
+__global__ void ext_desc_pligrid_starter( int*                extrema_counter,
+                                         int*                featvec_counter,
+                                         Extremum*           extrema,
+                                         Descriptor*         descs,
+                                         int*                feat_to_ext_map,
+                                         cudaTextureObject_t layer_tex,
+                                         bool                use_root_sift )
+{
+    dim3 block;
+    dim3 grid;
+    grid.x  = *featvec_counter;
+
+    if( grid.x == 0 ) return;
+
+    block.x = 32;
+    block.y = 4;
+    block.z = 4;
+
+    ext_desc_pl_igrid
         <<<grid,block>>>
         ( extrema,
           descs,
@@ -227,6 +268,16 @@ __global__ void ext_desc_igrid_starter( int*                extrema_counter,
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
 }
 __global__ void ext_desc_plgrid_starter( int*                extrema_counter,
+                                         int*                featvec_counter,
+                                         Extremum*           extrema,
+                                         Descriptor*         descs,
+                                         int*                feat_to_ext_map,
+                                         cudaTextureObject_t layer_tex,
+                                         bool                use_root_sift )
+{
+    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+}
+__global__ void ext_desc_pligrid_starter( int*                extrema_counter,
                                          int*                featvec_counter,
                                          Extremum*           extrema,
                                          Descriptor*         descs,
@@ -381,11 +432,22 @@ void Pyramid::descriptors( const Config& conf )
                               oct_obj.getFeatToExtMapD( level ),
                               oct_obj.getDataTexLinear( level ) );
                     } else if( conf.getDescMode() == Config::PLGrid ) {
-                        block.x = 16;
+                        block.x = 32;
                         block.y = 4;
                         block.z = 4;
 
                         ext_desc_pl_grid
+                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
+                            ( oct_obj.getExtrema( level ),
+                              oct_obj.getDescriptors( level ),
+                              oct_obj.getFeatToExtMapD( level ),
+                              oct_obj.getDataTexLinear( level ) );
+                    } else if( conf.getDescMode() == Config::PLIGrid ) {
+                        block.x = 32;
+                        block.y = 4;
+                        block.z = 4;
+
+                        ext_desc_pl_igrid
                             <<<grid,block,0,oct_obj.getStream(level+2)>>>
                             ( oct_obj.getExtrema( level ),
                               oct_obj.getDescriptors( level ),

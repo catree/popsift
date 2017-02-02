@@ -10,30 +10,76 @@
 
 #include "sift_constants.h"
 #include "s_gradiant.h"
-#include "s_desc_grid.h"
+#include "s_desc_pl_igrid.h"
 #include "assist.h"
 #include "common/vec_macros.h"
 
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_igrid_sub( const float         ang,
-                         const Extremum*     ext,
-                         float* __restrict__ features,
-                         cudaTextureObject_t layer_tex )
+void ext_desc_pl_load_igrid( float2              gradcache[42][42],
+                             const float         ang,
+                             const float         sig,
+                             const Extremum*     ext,
+                             cudaTextureObject_t layer_tex )
 {
-    const int ix   = threadIdx.y;
-    const int iy   = threadIdx.z;
+    const float x    = ext->xpos;
+    const float y    = ext->ypos;
+
+    const float SBP  = fabsf(DESC_MAGNIFY * sig);
+
+    float cos_t;
+    float sin_t;
+    __sincosf( ang, &sin_t, &cos_t );
+
+    const float csbp  = cos_t * SBP;
+    const float ssbp  = sin_t * SBP;
+
+    const float2 offset = make_float2( - 1.5f, - 1.5f );
+
+    const float2 pt = make_float2( ::fmaf( csbp, offset.x, ::fmaf( -ssbp, offset.y, x ) ),
+                                   ::fmaf( csbp, offset.y, ::fmaf(  ssbp, offset.x, y ) ) );
+
+    const float2 lft_dn  = make_float2( -cos_t + sin_t, -cos_t - sin_t );
+    const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
+    const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
+
+    int       start = ( threadIdx.z * 4 + threadIdx.y ) * 32 + threadIdx.x;
+    const int step  = 4 * 4 * 32;
+    const int len   = 42 * 42;
+    for( ; start < len; start += step )
+    {
+        int yd = start / 42;
+        int xd = start % 42;
+
+        float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
+        float2 pix  = pixo * SBP;
+        // pix = round( pt + pix ) - pt;
+        // pixo = pix / SBP;
+
+        float_get_gradiant( gradcache[yd][xd].x,
+                            gradcache[yd][xd].y,
+                            (pt+pix).x,
+                            (pt+pix).y,
+                            layer_tex );
+    }
+    __syncthreads();
+}
+
+__device__ static inline
+void ext_desc_pl_igrid_sub( const int           ix,
+                            const int           iy,
+                            const float         ang,
+                            const Extremum*     ext,
+                            float* __restrict__ features,
+                            const float2        gradcache[42][42] )
+{
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
     const float sig  = ext->sigma;
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
-
-    if( SBP == 0 ) {
-        return;
-    }
 
     float cos_t;
     float sin_t;
@@ -44,6 +90,7 @@ void ext_desc_igrid_sub( const float         ang,
 
     const float2 offset = make_float2( ix - 1.5f, iy - 1.5f );
 
+    // The following 2 lines were the primary bottleneck of this kernel
     // const float ptx = csbp * offsetptx - ssbp * offsetpty + x;
     // const float pty = csbp * offsetpty + ssbp * offsetptx + y;
     // const float ptx = ::fmaf( csbp, offsetptx, ::fmaf( -ssbp, offsetpty, x ) );
@@ -62,24 +109,17 @@ void ext_desc_igrid_sub( const float         ang,
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-#ifdef XDIM_IS_32
-    int xd = ( threadIdx.x & 0x15 );
-    for( int yd=(threadIdx.x>>4); yd<16; yd+=2 )
-#else
-    int xd = threadIdx.x;
-    for( int yd=0; yd<16; yd++ )
-#endif
+    int xd = threadIdx.x & 0x15;
+    int yd = ( threadIdx.x >> 4 );
+    for( ; yd<16; yd+=2 )
     {
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
-        float2 pix  = pixo * SBP;
-
-        // avoiding to round positions is the biggest difference between IGrid and Grid
+        // float2 pix  = pixo * SBP;
         // pix = round( pt + pix ) - pt;
         // pixo = pix / SBP;
 
-        float mod;
-        float th;
-        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, layer_tex );
+        float mod = gradcache[iy*8+yd][ix*8+xd].x;
+        float th  = gradcache[iy*8+yd][ix*8+xd].y;
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
@@ -113,21 +153,14 @@ void ext_desc_igrid_sub( const float         ang,
 
     /* reduction here */
     for (int i = 0; i < 8; i++) {
-#ifdef XDIM_IS_32
         dpt[i] += __shfl_down( dpt[i], 16 );
         dpt[i] += __shfl_down( dpt[i], 8 );
         dpt[i] += __shfl_down( dpt[i], 4 );
         dpt[i] += __shfl_down( dpt[i], 2 );
         dpt[i] += __shfl_down( dpt[i], 1 );
         dpt[i]  = __shfl     ( dpt[i], 0 );
-#else
-        dpt[i] += __shfl_down( dpt[i], 8, 16 );
-        dpt[i] += __shfl_down( dpt[i], 4, 16 );
-        dpt[i] += __shfl_down( dpt[i], 2, 16 );
-        dpt[i] += __shfl_down( dpt[i], 1, 16 );
-        dpt[i]  = __shfl     ( dpt[i], 0, 16 );
-#endif
     }
+
 
     if( threadIdx.x < 8 ) {
         features[tile+threadIdx.x] = dpt[threadIdx.x];
@@ -135,22 +168,38 @@ void ext_desc_igrid_sub( const float         ang,
 }
 
 __global__
-void ext_desc_igrid( Extremum*           extrema,
-                    Descriptor*         descs,
-                    int*                feat_to_ext_map,
-                    cudaTextureObject_t layer_tex )
+void ext_desc_pl_igrid( Extremum*           extrema,
+                       Descriptor*         descs,
+                       int*                feat_to_ext_map,
+                       cudaTextureObject_t layer_tex )
 {
+    const int   ix       = threadIdx.y;
+    const int   iy       = threadIdx.z;
     const int   offset   = blockIdx.x;
+
+    __shared__ float2 gradcache[42][42];
+
     Descriptor* desc     = &descs[offset];
     const int   ext_idx  = feat_to_ext_map[offset];
     Extremum*   ext      = &extrema[ext_idx];
     const int   ext_base = ext->idx_ori;
     const int   ext_num  = offset - ext_base;
     const float ang      = ext->orientation[ext_num];
+    const float sig      = ext->sigma;
 
-    ext_desc_igrid_sub( ang,
-                        ext,
-                        desc->features,
-                        layer_tex );
+    if( sig == 0 ) return;
+
+    ext_desc_pl_load_igrid( gradcache,
+                           ang,
+                           sig,
+                           ext,
+                           layer_tex );
+
+    ext_desc_pl_igrid_sub( ix,
+                          iy,
+                          ang,
+                          ext,
+                          desc->features,
+                          gradcache );
 }
 

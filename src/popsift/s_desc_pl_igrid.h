@@ -7,15 +7,16 @@
  */
 #pragma once
 #include "sift_extremum.h"
+#include "common/plane_2d.h"
 
 /*
  * We assume that this is started with
- * block = 32,4,4
+ * block = 16,4,4
  * grid  = nunmber of orientations
  */
 __global__
-void ext_desc_igrid( popsift::Extremum*     extrema,
-                     popsift::Descriptor*   descs,
-                     int*                   feat_to_ext_map,
-                     cudaTextureObject_t    layer_tex );
+void ext_desc_pl_igrid( popsift::Extremum*     extrema,
+                        popsift::Descriptor*   descs,
+                        int*                   feat_to_ext_map,
+                        cudaTextureObject_t    layer_tex );
 

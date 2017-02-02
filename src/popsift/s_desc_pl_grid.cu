@@ -17,7 +17,7 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_pl_load_grid( float2              gradcache[40][40],
+void ext_desc_pl_load_grid( float2              gradcache[42][42],
                             const float         ang,
                             const float         sig,
                             const Extremum*     ext,
@@ -44,13 +44,13 @@ void ext_desc_pl_load_grid( float2              gradcache[40][40],
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-    int       start = ( threadIdx.z * 4 + threadIdx.y ) * 16 + threadIdx.x;
-    const int step  = 4 * 4 * 16;
-    const int len   = 40 * 40;
+    int       start = ( threadIdx.z * 4 + threadIdx.y ) * 32 + threadIdx.x;
+    const int step  = 4 * 4 * 32;
+    const int len   = 42 * 42;
     for( ; start < len; start += step )
     {
-        int yd = start / 40;
-        int xd = start % 40;
+        int yd = start / 42;
+        int xd = start % 42;
 
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
@@ -72,7 +72,7 @@ void ext_desc_pl_grid_sub( const int           ix,
                            const float         ang,
                            const Extremum*     ext,
                            float* __restrict__ features,
-                           const float2        gradcache[40][40] )
+                           const float2        gradcache[42][42] )
 {
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
@@ -109,8 +109,9 @@ void ext_desc_pl_grid_sub( const int           ix,
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-    int xd = threadIdx.x;
-    for( int yd=0; yd<16; yd++ )
+    int xd = threadIdx.x & 0x15;
+    int yd = ( threadIdx.x >> 4 );
+    for( ; yd<16; yd+=2 )
     {
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
@@ -152,12 +153,12 @@ void ext_desc_pl_grid_sub( const int           ix,
 
     /* reduction here */
     for (int i = 0; i < 8; i++) {
-        // dpt[i] += __shfl_down( dpt[i], 16 );
-        dpt[i] += __shfl_down( dpt[i], 8, 16 );
-        dpt[i] += __shfl_down( dpt[i], 4, 16 );
-        dpt[i] += __shfl_down( dpt[i], 2, 16 );
-        dpt[i] += __shfl_down( dpt[i], 1, 16 );
-        dpt[i]  = __shfl     ( dpt[i], 0, 16 );
+        dpt[i] += __shfl_down( dpt[i], 16 );
+        dpt[i] += __shfl_down( dpt[i], 8 );
+        dpt[i] += __shfl_down( dpt[i], 4 );
+        dpt[i] += __shfl_down( dpt[i], 2 );
+        dpt[i] += __shfl_down( dpt[i], 1 );
+        dpt[i]  = __shfl     ( dpt[i], 0 );
     }
 
 
@@ -176,7 +177,7 @@ void ext_desc_pl_grid( Extremum*           extrema,
     const int   iy       = threadIdx.z;
     const int   offset   = blockIdx.x;
 
-    __shared__ float2 gradcache[40][40];
+    __shared__ float2 gradcache[42][42];
 
     Descriptor* desc     = &descs[offset];
     const int   ext_idx  = feat_to_ext_map[offset];

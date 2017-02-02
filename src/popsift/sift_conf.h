@@ -50,7 +50,8 @@ struct Config
         Loop,        // scan horizontal, extract valid points
         Grid,        // scan in rotated mode, round pixel address
         IGrid,       // scan in rotated mode, interpolate with tex engine
-        PLGrid       // preload gradiants, else like Grid
+        PLGrid,      // preload gradiants, else like Grid
+        PLIGrid      // preload gradiants, else like IGrid
     };
 
     void setGaussMode( const std::string& m );
