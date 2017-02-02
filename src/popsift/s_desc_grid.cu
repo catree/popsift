@@ -125,7 +125,6 @@ __global__
 void ext_desc_grid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    int                 featvec_counter,
                     cudaTextureObject_t layer_tex )
 {
     const int   ix       = threadIdx.y;

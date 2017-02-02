@@ -28,37 +28,26 @@
 using namespace popsift;
 using namespace std;
 
+__global__ void ext_desc_loop_starter( int*                featvec_counter,
+                                       Extremum*           extrema,
+                                       Descriptor*         descs,
+                                       int*                feat_to_ext_map,
+                                       Plane2D_float       layer,
+                                       cudaTextureObject_t layer_tex,
+                                       bool                use_root_sift )
+{
 #if __CUDA_ARCH__ > 350
-__global__ void ext_desc_loop_starter( int*                extrema_counter,
-                                       int*                featvec_counter,
-                                       Extremum*           extrema,
-                                       Descriptor*         descs,
-                                       int*                feat_to_ext_map,
-                                       Plane2D_float       layer,
-                                       cudaTextureObject_t layer_tex,
-                                       bool                use_root_sift )
-{
-    dim3 block;
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_loop( featvec_counter,
+                         extrema,
+                         descs,
+                         feat_to_ext_map,
+                         layer,
+                         layer_tex );
+
     dim3 grid;
-    grid.x  = *featvec_counter;
-
-    if( grid.x == 0 ) return;
-
-    block.x = 32;
-    block.y = 4;
-    block.z = 4;
-
-    ext_desc_loop
-        <<<grid,block>>>
-        ( extrema,
-          descs,
-          feat_to_ext_map,
-          layer,
-          layer_tex );
-
-    // it may be good to start more threads, but this kernel
-    // is too fast to be noticable in profiling
-
+    dim3 block;
     grid.x  = grid_divide( *featvec_counter, 32 );
     block.x = 32;
     block.y = 32;
@@ -73,221 +62,154 @@ __global__ void ext_desc_loop_starter( int*                extrema_counter,
             <<<grid,block>>>
             ( descs, *featvec_counter );
     }
-}
-__global__ void ext_desc_grid_starter( int*                extrema_counter,
-                                       int*                featvec_counter,
-                                       Extremum*           extrema,
-                                       Descriptor*         descs,
-                                       int*                feat_to_ext_map,
-                                       cudaTextureObject_t layer_tex,
-                                       bool                use_root_sift )
-{
-    dim3 block;
-    dim3 grid;
-
-    grid.x  = *featvec_counter;
-    if( grid.x == 0 ) return;
-
-    block.x = 16;
-    block.y = 4;
-    block.z = 4;
-
-    ext_desc_grid
-        <<<grid,block>>>
-        ( extrema,
-          descs,
-          feat_to_ext_map,
-          *featvec_counter,
-          layer_tex );
-
-    grid.x  = grid_divide( *featvec_counter, 32 );
-    block.x = 32;
-    block.y = 32;
-    block.z = 1;
-
-    if( use_root_sift ) {
-        normalize_histogram_root_sift
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    } else {
-        normalize_histogram_l2
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    }
-}
-__global__ void ext_desc_igrid_starter( int*                extrema_counter,
-                                        int*                featvec_counter,
-                                        Extremum*           extrema,
-                                        Descriptor*         descs,
-                                        int*                feat_to_ext_map,
-                                        cudaTextureObject_t layer_tex,
-                                        bool                use_root_sift )
-{
-    dim3 block;
-    dim3 grid;
-    grid.x  = *featvec_counter;
-
-    if( grid.x == 0 ) return;
-
-    block.x = 16;
-    block.y = 4;
-    block.z = 4;
-
-    ext_desc_igrid
-        <<<grid,block>>>
-        ( extrema,
-          descs,
-          feat_to_ext_map,
-          layer_tex );
-
-    grid.x  = grid_divide( *featvec_counter, 32 );
-    block.x = 32;
-    block.y = 32;
-    block.z = 1;
-
-    if( use_root_sift ) {
-        normalize_histogram_root_sift
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    } else {
-        normalize_histogram_l2
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    }
-}
-__global__ void ext_desc_plgrid_starter( int*                extrema_counter,
-                                         int*                featvec_counter,
-                                         Extremum*           extrema,
-                                         Descriptor*         descs,
-                                         int*                feat_to_ext_map,
-                                         cudaTextureObject_t layer_tex,
-                                         bool                use_root_sift )
-{
-    dim3 block;
-    dim3 grid;
-    grid.x  = *featvec_counter;
-
-    if( grid.x == 0 ) return;
-
-    block.x = 32;
-    block.y = 4;
-    block.z = 4;
-
-    ext_desc_pl_grid
-        <<<grid,block>>>
-        ( extrema,
-          descs,
-          feat_to_ext_map,
-          layer_tex );
-
-    grid.x  = grid_divide( *featvec_counter, 32 );
-    block.x = 32;
-    block.y = 32;
-    block.z = 1;
-
-    if( use_root_sift ) {
-        normalize_histogram_root_sift
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    } else {
-        normalize_histogram_l2
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    }
-}
-__global__ void ext_desc_pligrid_starter( int*                extrema_counter,
-                                         int*                featvec_counter,
-                                         Extremum*           extrema,
-                                         Descriptor*         descs,
-                                         int*                feat_to_ext_map,
-                                         cudaTextureObject_t layer_tex,
-                                         bool                use_root_sift )
-{
-    dim3 block;
-    dim3 grid;
-    grid.x  = *featvec_counter;
-
-    if( grid.x == 0 ) return;
-
-    block.x = 32;
-    block.y = 4;
-    block.z = 4;
-
-    ext_desc_pl_igrid
-        <<<grid,block>>>
-        ( extrema,
-          descs,
-          feat_to_ext_map,
-          layer_tex );
-
-    grid.x  = grid_divide( *featvec_counter, 32 );
-    block.x = 32;
-    block.y = 32;
-    block.z = 1;
-
-    if( use_root_sift ) {
-        normalize_histogram_root_sift
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    } else {
-        normalize_histogram_l2
-            <<<grid,block>>>
-            ( descs, *featvec_counter );
-    }
-}
 #else // __CUDA_ARCH__ > 350
-__global__ void ext_desc_loop_starter( int*                extrema_counter,
-                                       int*                featvec_counter,
-                                       Extremum*           extrema,
-                                       Descriptor*         descs,
-                                       int*                feat_to_ext_map,
-                                       Plane2D_float       layer,
-                                       cudaTextureObject_t layer_tex,
-                                       bool                use_root_sift )
-{
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+#endif // __CUDA_ARCH__ > 350
 }
-__global__ void ext_desc_grid_starter( int*                extrema_counter,
-                                       int*                featvec_counter,
+__global__ void ext_desc_grid_starter( int*                featvec_counter,
                                        Extremum*           extrema,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
                                        cudaTextureObject_t layer_tex,
                                        bool                use_root_sift )
 {
+#if __CUDA_ARCH__ > 350
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_grid( featvec_counter,
+                         extrema,
+                         descs,
+                         feat_to_ext_map,
+                         layer_tex );
+
+    dim3 block;
+    dim3 grid;
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+#else // __CUDA_ARCH__ > 350
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+#endif // __CUDA_ARCH__ > 350
 }
-__global__ void ext_desc_igrid_starter( int*                extrema_counter,
-                                        int*                featvec_counter,
+__global__ void ext_desc_igrid_starter( int*                featvec_counter,
                                         Extremum*           extrema,
                                         Descriptor*         descs,
                                         int*                feat_to_ext_map,
                                         cudaTextureObject_t layer_tex,
                                         bool                use_root_sift )
 {
+#if __CUDA_ARCH__ > 350
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_grid( featvec_counter,
+                         extrema,
+                         descs,
+                         feat_to_ext_map,
+                         layer_tex );
+
+    dim3 block;
+    dim3 grid;
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+#else // __CUDA_ARCH__ > 350
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
-}
-__global__ void ext_desc_plgrid_starter( int*                extrema_counter,
-                                         int*                featvec_counter,
-                                         Extremum*           extrema,
-                                         Descriptor*         descs,
-                                         int*                feat_to_ext_map,
-                                         cudaTextureObject_t layer_tex,
-                                         bool                use_root_sift )
-{
-    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
-}
-__global__ void ext_desc_pligrid_starter( int*                extrema_counter,
-                                         int*                featvec_counter,
-                                         Extremum*           extrema,
-                                         Descriptor*         descs,
-                                         int*                feat_to_ext_map,
-                                         cudaTextureObject_t layer_tex,
-                                         bool                use_root_sift )
-{
-    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
-}
 #endif // __CUDA_ARCH__ > 350
+}
+__global__ void ext_desc_plgrid_starter( int*                featvec_counter,
+                                         Extremum*           extrema,
+                                         Descriptor*         descs,
+                                         int*                feat_to_ext_map,
+                                         cudaTextureObject_t layer_tex,
+                                         bool                use_root_sift )
+{
+#if __CUDA_ARCH__ > 350
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_pl_grid( featvec_counter,
+                            extrema,
+                            descs,
+                            feat_to_ext_map,
+                            layer_tex );
+
+    dim3 block;
+    dim3 grid;
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+#else // __CUDA_ARCH__ > 350
+    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+#endif // __CUDA_ARCH__ > 350
+}
+__global__ void ext_desc_pligrid_starter( int*                featvec_counter,
+                                         Extremum*           extrema,
+                                         Descriptor*         descs,
+                                         int*                feat_to_ext_map,
+                                         cudaTextureObject_t layer_tex,
+                                         bool                use_root_sift )
+{
+#if __CUDA_ARCH__ > 350
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_pl_igrid( featvec_counter,
+                             extrema,
+                             descs,
+                             feat_to_ext_map,
+                             layer_tex );
+
+    dim3 block;
+    dim3 grid;
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+#else // __CUDA_ARCH__ > 350
+    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+#endif // __CUDA_ARCH__ > 350
+}
 
 /*************************************************************
  * descriptor extraction
@@ -311,7 +233,7 @@ __host__
 void Pyramid::descriptors( const Config& conf )
 {
     if( conf.useDPDescriptors() ) {
-        // cerr << "Calling descriptors with dynamic parallelism" << endl;
+        cerr << "Calling descriptors with dynamic parallelism" << endl;
 
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
@@ -322,8 +244,7 @@ void Pyramid::descriptors( const Config& conf )
                 if( conf.getDescMode() == Config::Loop ) {
                     ext_desc_loop_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getExtremaCtPtrD( level ),
-                          oct_obj.getFeatVecCtPtrD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( level ),
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
@@ -333,8 +254,7 @@ void Pyramid::descriptors( const Config& conf )
                 } else if( conf.getDescMode() == Config::Grid ) {
                     ext_desc_grid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getExtremaCtPtrD( level ),
-                          oct_obj.getFeatVecCtPtrD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( level ),
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
@@ -343,22 +263,29 @@ void Pyramid::descriptors( const Config& conf )
                 } else if( conf.getDescMode() == Config::IGrid ) {
                     ext_desc_igrid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getExtremaCtPtrD( level ),
-                          oct_obj.getFeatVecCtPtrD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( level ),
+                          oct_obj.getExtrema( level ),
+                          oct_obj.getDescriptors( level ),
+                          oct_obj.getFeatToExtMapD( level ),
+                          oct_obj.getDataTexLinear( level ),
+                          conf.getUseRootSift() );
+                } else if( conf.getDescMode() == Config::PLGrid ) {
+                    ext_desc_plgrid_starter
+                        <<<1,1,0,oct_str>>>
+                        ( oct_obj.getFeatVecCtPtrD( level ),
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
                           oct_obj.getDataTexPoint( level ),
                           conf.getUseRootSift() );
-                } else if( conf.getDescMode() == Config::PLGrid ) {
-                    ext_desc_plgrid_starter
+                } else if( conf.getDescMode() == Config::PLIGrid ) {
+                    ext_desc_pligrid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getExtremaCtPtrD( level ),
-                          oct_obj.getFeatVecCtPtrD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( level ),
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getDataTexPoint( level ),
+                          oct_obj.getDataTexLinear( level ),
                           conf.getUseRootSift() );
                 }
             }
@@ -371,7 +298,7 @@ void Pyramid::descriptors( const Config& conf )
             oct_obj.readExtremaCount( );
         }
     } else {
-        // cerr << "Calling descriptors -no- dynamic parallelism" << endl;
+        cerr << "Calling descriptors -no- dynamic parallelism" << endl;
 
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
@@ -397,62 +324,15 @@ void Pyramid::descriptors( const Config& conf )
 
                 if( grid.x != 0 ) {
                     if( conf.getDescMode() == Config::Loop ) {
-                        block.x = 32;
-                        block.y = 4;
-                        block.z = 4;
-
-                        ext_desc_loop
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getData( level ),
-                              oct_obj.getDataTexPoint( level ) );
+                        start_ext_desc_loop( oct_obj, level );
                     } else if( conf.getDescMode() == Config::Grid ) {
-                        block.x = 16;
-                        block.y = 4;
-                        block.z = 4;
-
-                        ext_desc_grid
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getFeatVecCountH( level ),
-                              oct_obj.getDataTexPoint( level ) );
+                        start_ext_desc_grid( oct_obj, level );
                     } else if( conf.getDescMode() == Config::IGrid ) {
-                        block.x = 16;
-                        block.y = 4;
-                        block.z = 4;
-
-                        ext_desc_igrid
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getDataTexLinear( level ) );
+                        start_ext_desc_igrid( oct_obj, level );
                     } else if( conf.getDescMode() == Config::PLGrid ) {
-                        block.x = 32;
-                        block.y = 4;
-                        block.z = 4;
-
-                        ext_desc_pl_grid
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getDataTexLinear( level ) );
+                        start_ext_desc_pl_grid( oct_obj, level );
                     } else if( conf.getDescMode() == Config::PLIGrid ) {
-                        block.x = 32;
-                        block.y = 4;
-                        block.z = 4;
-
-                        ext_desc_pl_igrid
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatToExtMapD( level ),
-                              oct_obj.getDataTexLinear( level ) );
+                        start_ext_desc_pl_igrid( oct_obj, level );
                     } else {
                         POP_FATAL( "not yet" );
                     }

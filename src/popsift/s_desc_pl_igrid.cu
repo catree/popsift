@@ -17,7 +17,7 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_pl_load_igrid( float2              gradcache[42][42],
+void ext_desc_pl_load_igrid( float2              gradcache[40][40],
                              const float         ang,
                              const float         sig,
                              const Extremum*     ext,
@@ -44,24 +44,23 @@ void ext_desc_pl_load_igrid( float2              gradcache[42][42],
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-    int       start = ( threadIdx.z * 4 + threadIdx.y ) * 32 + threadIdx.x;
-    const int step  = 4 * 4 * 32;
-    const int len   = 42 * 42;
-    for( ; start < len; start += step )
+    for( int yd = threadIdx.z*4+threadIdx.y; yd<40; yd += 16 )
     {
-        int yd = start / 42;
-        int xd = start % 42;
+        for( int xd = threadIdx.x; __any(xd<40); xd += 32 ) if( xd<40 )
+        {
+            float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
+            float2 pix  = pixo * SBP;
+            // pix = round( pt + pix ) - pt;
+            // pixo = pix / SBP;
 
-        float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
-        float2 pix  = pixo * SBP;
-        // pix = round( pt + pix ) - pt;
-        // pixo = pix / SBP;
+            float_get_gradiant( gradcache[yd][xd].x,
+                                gradcache[yd][xd].y,
+                                (pt+pix).x,
+                                (pt+pix).y,
+                                layer_tex );
+        }
 
-        float_get_gradiant( gradcache[yd][xd].x,
-                            gradcache[yd][xd].y,
-                            (pt+pix).x,
-                            (pt+pix).y,
-                            layer_tex );
+        __any(yd<40); // fake a barrier for a single warp only
     }
     __syncthreads();
 }
@@ -72,7 +71,7 @@ void ext_desc_pl_igrid_sub( const int           ix,
                             const float         ang,
                             const Extremum*     ext,
                             float* __restrict__ features,
-                            const float2        gradcache[42][42] )
+                            const float2        gradcache[40][40] )
 {
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
@@ -109,7 +108,7 @@ void ext_desc_pl_igrid_sub( const int           ix,
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-    int xd = threadIdx.x & 0x15;
+    int xd = threadIdx.x & 0xf;
     int yd = ( threadIdx.x >> 4 );
     for( ; yd<16; yd+=2 )
     {
@@ -177,7 +176,7 @@ void ext_desc_pl_igrid( Extremum*           extrema,
     const int   iy       = threadIdx.z;
     const int   offset   = blockIdx.x;
 
-    __shared__ float2 gradcache[42][42];
+    __shared__ float2 gradcache[40][40];
 
     Descriptor* desc     = &descs[offset];
     const int   ext_idx  = feat_to_ext_map[offset];

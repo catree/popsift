@@ -10,7 +10,7 @@
 
 #include "sift_constants.h"
 #include "s_gradiant.h"
-#include "s_desc_grid.h"
+#include "s_desc_igrid.h"
 #include "assist.h"
 #include "common/vec_macros.h"
 
@@ -62,7 +62,7 @@ void ext_desc_igrid_sub( const float         ang,
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-#ifdef XDIM_IS_32
+#ifdef IGRID_XDIM_IS_32
     int xd = ( threadIdx.x & 0x15 );
     for( int yd=(threadIdx.x>>4); yd<16; yd+=2 )
 #else
@@ -113,7 +113,7 @@ void ext_desc_igrid_sub( const float         ang,
 
     /* reduction here */
     for (int i = 0; i < 8; i++) {
-#ifdef XDIM_IS_32
+#ifdef IGRID_XDIM_IS_32
         dpt[i] += __shfl_down( dpt[i], 16 );
         dpt[i] += __shfl_down( dpt[i], 8 );
         dpt[i] += __shfl_down( dpt[i], 4 );
