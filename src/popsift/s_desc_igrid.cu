@@ -20,7 +20,8 @@ __device__ static inline
 void ext_desc_igrid_sub( const float         ang,
                          const Extremum*     ext,
                          float* __restrict__ features,
-                         cudaTextureObject_t layer_tex )
+                         cudaTextureObject_t texLinear,
+                         int                 level )
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
@@ -79,7 +80,7 @@ void ext_desc_igrid_sub( const float         ang,
 
         float mod;
         float th;
-        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, layer_tex );
+        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, texLinear, level );
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
@@ -138,7 +139,8 @@ __global__
 void ext_desc_igrid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    cudaTextureObject_t layer_tex )
+                    cudaTextureObject_t texLinear,
+                    int                 level )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];
@@ -151,6 +153,7 @@ void ext_desc_igrid( Extremum*           extrema,
     ext_desc_igrid_sub( ang,
                         ext,
                         desc->features,
-                        layer_tex );
+                        texLinear,
+                        level );
 }
 

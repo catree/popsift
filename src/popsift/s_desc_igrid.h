@@ -20,7 +20,8 @@ __global__
 void ext_desc_igrid( popsift::Extremum*     extrema,
                      popsift::Descriptor*   descs,
                      int*                   feat_to_ext_map,
-                     cudaTextureObject_t    layer_tex );
+                     cudaTextureObject_t    texLinear,
+                     int                    level );
 
 namespace popsift
 {
@@ -50,7 +51,8 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj, int level )
         ( oct_obj.getExtrema( level ),
           oct_obj.getDescriptors( level ),
           oct_obj.getFeatToExtMapD( level ),
-          oct_obj.getDataTexLinear( level ) );
+          oct_obj.getDataTexLinear( ),
+          level );
 
     return true;
 }
@@ -60,7 +62,8 @@ void start_ext_desc_igrid( int*                featvec_counter,
                            Extremum*           extrema,
                            Descriptor*         descs,
                            int*                feat_to_ext_map,
-                           cudaTextureObject_t layer_tex )
+                           cudaTextureObject_t texLinear,
+                           int                 level )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;
@@ -84,7 +87,8 @@ void start_ext_desc_igrid( int*                featvec_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          layer_tex );
+          texLinear,
+          level );
 #endif
 }
 

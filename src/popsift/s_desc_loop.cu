@@ -20,12 +20,11 @@ __device__ static inline
 void ext_desc_loop_sub( const float         ang,
                         const Extremum*     ext,
                         float* __restrict__ features,
-                        Plane2D_float       layer,
-                        cudaTextureObject_t layer_tex )
+                        cudaTextureObject_t layer_tex,
+                        const int           width,
+                        const int           height,
+                        const int           level )
 {
-    const int width  = layer.getWidth();
-    const int height = layer.getHeight();
-
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
@@ -84,9 +83,9 @@ void ext_desc_loop_sub( const float         ang,
                                       ::fmaf( crsbp, d.y, -srsbp * d.x ) );
         const float2 nn = abs(n);
         if (nn.x < 1.0f && nn.y < 1.0f) {
-            const float2 mod_th = get_gradiant( jj, ii, layer_tex );
-            const float& mod    = mod_th.x;
-            float        th     = mod_th.y;
+            float mod;
+            float th;
+            get_gradiant( mod, th, jj, ii, layer_tex, level );
 
             const float2 dn = n + offsetpt;
             const float  ww = __expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3));
@@ -136,8 +135,10 @@ __global__
 void ext_desc_loop( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    Plane2D_float       layer,
-                    cudaTextureObject_t layer_tex )
+                    cudaTextureObject_t layer_tex,
+                    const int           w,
+                    const int           h,
+                    const int           level )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];
@@ -150,7 +151,9 @@ void ext_desc_loop( Extremum*           extrema,
     ext_desc_loop_sub( ang,
                        ext,
                        desc->features,
-                       layer,
-                       layer_tex );
+                       layer_tex,
+                       w,
+                       h,
+                       level );
 }
 

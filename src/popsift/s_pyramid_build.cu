@@ -28,9 +28,13 @@ namespace absoluteTexAddress {
 __global__
 void horiz( cudaTextureObject_t src_data,
             Plane2D_float       dst_data,
-            int                 level )
+            const int           dst_w,
+            const int           dst_h,
+            const int           dst_level )
 {
-    const int dst_w = dst_data.getWidth();
+    const int    src_level = dst_level - 1;
+    const int    span      = d_gauss.inc.span[dst_level];
+    const float* filter    = &popsift::d_gauss.inc.filter[dst_level*GAUSS_ALIGN];
 
     const int off_x = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -39,15 +43,15 @@ void horiz( cudaTextureObject_t src_data,
     float out = 0.0f;
 
     #pragma unroll
-    for( int offset = d_gauss.inc.span[level]; offset>0; offset-- ) {
-        const float& g  = popsift::d_gauss.inc.filter[level*GAUSS_ALIGN + offset];
-        const float  v1 = tex2D<float>( src_data, off_x - offset + 0.5f, blockIdx.y + 0.5f );
+    for( int offset = span; offset>0; offset-- ) {
+        const float& g  = filter[offset];
+        const float  v1 = tex2DLayered<float>( src_data, off_x - offset + 0.5f, blockIdx.y + 0.5f, src_level );
         out += ( v1 * g );
 
-        const float  v2 = tex2D<float>( src_data, off_x + offset + 0.5f, blockIdx.y + 0.5f );
+        const float  v2 = tex2DLayered<float>( src_data, off_x + offset + 0.5f, blockIdx.y + 0.5f, src_level );
         out += ( v2 * g );
     }
-    const float& g  = popsift::d_gauss.inc.filter[level*GAUSS_ALIGN];
+    const float& g  = filter[0];
     const float v3 = tex2D<float>( src_data, off_x+0.5f, blockIdx.y+0.5f );
     out += ( v3 * g );
 
@@ -56,13 +60,13 @@ void horiz( cudaTextureObject_t src_data,
 
 __device__ static inline
 void vert_sub( cudaTextureObject_t src_data,
-               Plane2D_float       dst_data,
-               int                 span,
-               float*              filter )
+               cudaSurfaceObject_t dst_data,
+               const int           dst_w,
+               const int           dst_h,
+               const int           dst_level,
+               const int           span,
+               const float*        filter )
 {
-    const int dst_w = dst_data.getWidth();
-    const int dst_h = dst_data.getHeight();
-
     int block_x = blockIdx.x * blockDim.x;
     int block_y = blockIdx.y * blockDim.y;
     int idx     = threadIdx.x;
@@ -95,15 +99,17 @@ void vert_sub( cudaTextureObject_t src_data,
     if( idx >= dst_w ) return;
     if( idy >= dst_h ) return;
 
-    dst_data.ptr(idy)[idx] = out;
+    surf2DLayeredwrite( out, dst_data, idx*4, idy, dst_level, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = out;
 }
 
 __global__
 void vert( cudaTextureObject_t src_data,
-           Plane2D_float       dst_data,
-           int                 level )
+           cudaSurfaceObject_t dst_data,
+           int                 dst_w,
+           int                 dst_h,
+           int                 dst_level )
 {
-    vert_sub( src_data, dst_data, d_gauss.inc.span[level], &popsift::d_gauss.inc.filter[level*GAUSS_ALIGN] );
+    vert_sub( src_data, dst_data, dst_w, dst_h, dst_level, d_gauss.inc.span[dst_level], &popsift::d_gauss.inc.filter[dst_level*GAUSS_ALIGN] );
 }
 
 } // namespace absoluteTexAddress
@@ -171,62 +177,61 @@ void horiz( cudaTextureObject_t src_data,
 
 __global__
 void get_by_2_interpolate( cudaTextureObject_t src_data,
-                           Plane2D_float       dst_data,
-                           int                 level )
+                           const int           src_level,
+                           cudaSurfaceObject_t dst_data,
+                           const int           dst_w,
+                           const int           dst_h )
 {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     const int idy = blockIdx.y * blockDim.y + threadIdx.y;
 
-    const int dst_w = dst_data.getWidth();
-    const int dst_h = dst_data.getHeight();
     if( idx >= dst_w ) return;
     if( idy >= dst_h ) return;
 
-    const float val = tex2D<float>( src_data, 2.0f * idx + 1.0f, 2.0f * idy + 1.0f );
-    dst_data.ptr(idy)[idx] = val;
+    const float val = tex2DLayered<float>( src_data, 2.0f * idx + 1.0f, 2.0f * idy + 1.0f, src_level );
+
+    surf2DLayeredwrite( val, dst_data, idx*4, idy, 0, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = val;
 }
 
 __global__
-void get_by_2_pick_every_second( Plane2D_float src_data,
-                                 Plane2D_float dst_data,
-                                 int           level )
+void get_by_2_pick_every_second( cudaTextureObject_t src_data,
+                                 const int           src_w,
+                                 const int           src_h,
+                                 const int           src_level,
+                                 cudaSurfaceObject_t dst_data,
+                                 const int           dst_w,
+                                 const int           dst_h )
 {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     const int idy = blockIdx.y * blockDim.y + threadIdx.y;
 
-    const int dst_w = dst_data.getWidth();
-    const int dst_h = dst_data.getHeight();
     if( idx >= dst_w ) return;
     if( idy >= dst_h ) return;
 
-    const int src_w = src_data.getWidth();
-    const int src_h = src_data.getHeight();
     const int read_x = clamp( idx << 1, 0, src_w );
     const int read_y = clamp( idy << 1, 0, src_h );
 
-    const float val = src_data.ptr(read_y)[read_x];
+    const float val = tex2DLayered<float>( src_data, read_x, read_y, src_level );
 
-    dst_data.ptr(idy)[idx] = val;
+    surf2DLayeredwrite( val, dst_data, idx*4, idy, 0, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = val;
 }
 
 
 __global__
-void make_dog( Plane2D_float       this_data,
-               Plane2D_float       top_data,
+void make_dog( cudaTextureObject_t src_data,
                cudaSurfaceObject_t dog_data,
-               int                 level )
+               const int           w,
+               const int           h,
+               const int           level )
 {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     const int idy = blockIdx.y * blockDim.y + threadIdx.y;
 
-    const int cols = this_data.getWidth();
-    const int rows = this_data.getHeight();
-    
-    const int r_x = clamp( idx, cols );
-    const int r_y = clamp( idy, rows );
+    const int r_x = clamp( idx, w );
+    const int r_y = clamp( idy, h );
 
-    const float b = this_data.ptr(r_y)[r_x];
-    const float a = top_data .ptr(r_y)[r_x];
+    const float b = tex2DLayered<float>( src_data, r_x, r_y, level+1 );
+    const float a = tex2DLayered<float>( src_data, r_x, r_y, level );
     const float c = b - a;
 
     surf2DLayeredwrite( c, dog_data, idx*4, idy, level, cudaBoundaryModeZero );
@@ -263,7 +268,7 @@ inline void Pyramid::horiz_from_input_image( const Config& conf, Image* base, in
 
 
 __host__
-inline void Pyramid::downscale_from_prev_octave( int octave, int level, cudaStream_t stream, Config::SiftMode mode )
+inline void Pyramid::downscale_from_prev_octave( int octave, cudaStream_t stream, Config::SiftMode mode )
 {
     Octave&      oct_obj = _octaves[octave];
     Octave& prev_oct_obj = _octaves[octave-1];
@@ -287,16 +292,22 @@ inline void Pyramid::downscale_from_prev_octave( int octave, int level, cudaStre
     case Config::OpenCV :
         gauss::get_by_2_pick_every_second
             <<<h_grid,h_block,0,stream>>>
-            ( prev_oct_obj.getData( _levels-PREV_LEVEL ),
-              oct_obj.getData( level ),
-              level );
+            ( prev_oct_obj.getDataTexPoint( ),
+              prev_oct_obj.getWidth(),
+              prev_oct_obj.getHeight(),
+              _levels-PREV_LEVEL,
+              oct_obj.getDataSurface( ),
+              oct_obj.getWidth(),
+              oct_obj.getHeight() );
         break;
     default :
         gauss::get_by_2_interpolate
             <<<h_grid,h_block,0,stream>>>
-            ( prev_oct_obj.getDataTexLinear( _levels-PREV_LEVEL ),
-              oct_obj.getData( level ),
-              level );
+            ( prev_oct_obj.getDataTexLinear( ),
+              _levels-PREV_LEVEL,
+              oct_obj.getDataSurface( ),
+              oct_obj.getWidth(),
+              oct_obj.getHeight() );
         break;
     }
 }
@@ -320,8 +331,10 @@ inline void Pyramid::horiz_from_prev_level( int octave, int level, cudaStream_t 
 
     gauss::variableSpan::absoluteTexAddress::horiz
         <<<grid,block,0,stream>>>
-        ( oct_obj.getDataTexPoint( level-1 ),
+        ( oct_obj.getDataTexPoint( ),
           oct_obj.getIntermediateData( ),
+          oct_obj.getWidth(),
+          oct_obj.getHeight(),
           level );
 }
 
@@ -344,7 +357,9 @@ inline void Pyramid::vert_from_interm( int octave, int level, cudaStream_t strea
     gauss::variableSpan::absoluteTexAddress::vert
         <<<grid,block,0,stream>>>
         ( oct_obj.getIntermDataTexPoint( ),
-          oct_obj.getData( level ),
+          oct_obj.getDataSurface( ),
+          oct_obj.getWidth(),
+          oct_obj.getHeight(),
           level );
 }
 
@@ -369,9 +384,10 @@ inline void Pyramid::dog_from_blurred( int octave, int level, cudaStream_t strea
 
     gauss::make_dog
         <<<grid,block,0,stream>>>
-        ( oct_obj.getData(level),
-          oct_obj.getData(level-1),
+        ( oct_obj.getDataTexPoint( ),
           oct_obj.getDogSurface( ),
+          oct_obj.getWidth(),
+          oct_obj.getHeight(),
           level-1 );
 }
 
@@ -408,7 +424,7 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
                                         conf.getSiftMode() );
                 vert_from_interm( octave, 0, stream );
             } else { // Config::ScaleDefault
-                downscale_from_prev_octave( octave, 0, stream,
+                downscale_from_prev_octave( octave, stream,
                                             conf.getSiftMode() );
             }
             make_octave( conf, base, oct_obj, stream, false );
@@ -449,7 +465,7 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
                                                 conf.getSiftMode() );
                         vert_from_interm( octave, level, stream );
                     } else { // Config::ScaleDefault
-                        downscale_from_prev_octave( octave, level, stream,
+                        downscale_from_prev_octave( octave, stream,
                                                     conf.getSiftMode() );
                     }
                 }

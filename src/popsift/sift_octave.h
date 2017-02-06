@@ -25,15 +25,20 @@ class Octave
         int _levels;
         int _gauss_group;
 
-        Plane2D_float* _data;
-        Plane2D_float  _intermediate_data;
+        cudaArray_t           _data;
+        cudaChannelFormatDesc _data_desc;
+        cudaExtent            _data_ext;
+        cudaSurfaceObject_t   _data_surf;
+        cudaTextureObject_t   _data_tex_point;
+        cudaTextureObject_t   _data_tex_linear;
+
+        Plane2D_float         _intermediate_data;
+        cudaTextureObject_t   _interm_data_tex;
 
         cudaArray_t           _dog_3d;
         cudaChannelFormatDesc _dog_3d_desc;
         cudaExtent            _dog_3d_ext;
-
         cudaSurfaceObject_t   _dog_3d_surf;
-
         cudaTextureObject_t   _dog_3d_tex;
 
         // one CUDA stream per level
@@ -43,9 +48,6 @@ class Octave
         cudaEvent_t*  _dog_done;
         cudaEvent_t*  _extrema_done;
 
-        cudaTextureObject_t* _data_tex;
-        cudaTextureObject_t* _data_tex_linear;
-        cudaTextureObject_t  _interm_data_tex;
 
         /* It seems strange strange to collect extrema globally only
          * as other code does.
@@ -88,21 +90,9 @@ class Octave
 
         inline int getLevels() const { return _levels; }
         inline int getWidth() const  {
-#if 1
-            if( _w != _data[0].getWidth() ) {
-                std::cerr << __FILE__ << "," << __LINE__ << ": Programming error, bad width initialization" << std::endl;
-                exit( -1 );
-            }
-#endif
             return _w;
         }
         inline int getHeight() const {
-#if 1
-            if( _h != _data[0].getHeight() ) {
-                std::cerr << __FILE__ << "," << __LINE__ << ": Programming error, bad width initialization" << std::endl;
-                exit( -1 );
-            }
-#endif
             return _h;
         }
 
@@ -122,14 +112,14 @@ class Octave
         inline cudaTextureObject_t getIntermDataTexPoint( ) {
             return _interm_data_tex;
         }
-        inline cudaTextureObject_t getDataTexLinear( int level ) {
-            return _data_tex_linear[level];
+        inline cudaTextureObject_t getDataTexLinear( ) {
+            return _data_tex_linear;
         }
-        inline cudaTextureObject_t getDataTexPoint( int level ) {
-            return _data_tex[level];
+        inline cudaTextureObject_t getDataTexPoint( ) {
+            return _data_tex_point;
         }
-        inline Plane2D_float& getData( int level ) {
-            return _data[level];
+        inline cudaSurfaceObject_t getDataSurface( ) {
+            return _data_surf;
         }
         inline Plane2D_float& getIntermediateData( ) {
             return _intermediate_data;
@@ -142,15 +132,9 @@ class Octave
             return _dog_3d_tex;
         }
 
-        inline uint32_t getFloatSizeData() const {
-            return _data[0].getByteSize() / sizeof(float);
-        }
-        inline uint32_t getByteSizeData() const {
-            return _data[0].getByteSize();
-        }
-        inline uint32_t getByteSizePitch() const {
-            return _data[0].getPitch();
-        }
+        // inline uint32_t getFloatSizeData() const { return _data[0].getByteSize() / sizeof(float); }
+        // inline uint32_t getByteSizeData() const { return _data[0].getByteSize(); }
+        // inline uint32_t getByteSizePitch() const { return _data[0].getPitch(); }
 
         inline int*  getExtremaCtPtrH( int level ) { return &_h_extrema_counter[level]; }
         inline int*  getExtremaCtPtrD( int level ) { return &_d_extrema_counter[level]; }

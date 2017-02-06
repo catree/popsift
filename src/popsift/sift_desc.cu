@@ -32,8 +32,10 @@ __global__ void ext_desc_loop_starter( int*                featvec_counter,
                                        Extremum*           extrema,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
-                                       Plane2D_float       layer,
                                        cudaTextureObject_t layer_tex,
+                                       const int           w,
+                                       const int           h,
+                                       const int           level,
                                        bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -43,8 +45,10 @@ __global__ void ext_desc_loop_starter( int*                featvec_counter,
                          extrema,
                          descs,
                          feat_to_ext_map,
-                         layer,
-                         layer_tex );
+                         layer_tex,
+                         w,
+                         h,
+                         level );
 
     dim3 grid;
     dim3 block;
@@ -71,6 +75,7 @@ __global__ void ext_desc_grid_starter( int*                featvec_counter,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
                                        cudaTextureObject_t layer_tex,
+                                       const int           level,
                                        bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -80,7 +85,8 @@ __global__ void ext_desc_grid_starter( int*                featvec_counter,
                          extrema,
                          descs,
                          feat_to_ext_map,
-                         layer_tex );
+                         layer_tex,
+                         level );
 
     dim3 block;
     dim3 grid;
@@ -107,6 +113,7 @@ __global__ void ext_desc_igrid_starter( int*                featvec_counter,
                                         Descriptor*         descs,
                                         int*                feat_to_ext_map,
                                         cudaTextureObject_t layer_tex,
+                                        const int           level,
                                         bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -116,7 +123,8 @@ __global__ void ext_desc_igrid_starter( int*                featvec_counter,
                          extrema,
                          descs,
                          feat_to_ext_map,
-                         layer_tex );
+                         layer_tex,
+                         level );
 
     dim3 block;
     dim3 grid;
@@ -143,6 +151,7 @@ __global__ void ext_desc_plgrid_starter( int*                featvec_counter,
                                          Descriptor*         descs,
                                          int*                feat_to_ext_map,
                                          cudaTextureObject_t layer_tex,
+                                         const int           level,
                                          bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -152,7 +161,8 @@ __global__ void ext_desc_plgrid_starter( int*                featvec_counter,
                             extrema,
                             descs,
                             feat_to_ext_map,
-                            layer_tex );
+                            layer_tex,
+                            level );
 
     dim3 block;
     dim3 grid;
@@ -179,6 +189,7 @@ __global__ void ext_desc_pligrid_starter( int*                featvec_counter,
                                          Descriptor*         descs,
                                          int*                feat_to_ext_map,
                                          cudaTextureObject_t layer_tex,
+                                         const int           level,
                                          bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -188,7 +199,8 @@ __global__ void ext_desc_pligrid_starter( int*                featvec_counter,
                              extrema,
                              descs,
                              feat_to_ext_map,
-                             layer_tex );
+                             layer_tex,
+                             level );
 
     dim3 block;
     dim3 grid;
@@ -248,8 +260,10 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getData( level ),
-                          oct_obj.getDataTexPoint( level ),
+                          oct_obj.getDataTexPoint( ),
+                          oct_obj.getWidth( ),
+                          oct_obj.getHeight( ),
+                          level,
                           conf.getUseRootSift() );
                 } else if( conf.getDescMode() == Config::Grid ) {
                     ext_desc_grid_starter
@@ -258,7 +272,8 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getDataTexPoint( level ),
+                          oct_obj.getDataTexPoint( ),
+                          level,
                           conf.getUseRootSift() );
                 } else if( conf.getDescMode() == Config::IGrid ) {
                     ext_desc_igrid_starter
@@ -267,7 +282,8 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getDataTexLinear( level ),
+                          oct_obj.getDataTexLinear( ),
+                          level,
                           conf.getUseRootSift() );
                 } else if( conf.getDescMode() == Config::PLGrid ) {
                     ext_desc_plgrid_starter
@@ -276,7 +292,8 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getDataTexPoint( level ),
+                          oct_obj.getDataTexPoint( ),
+                          level,
                           conf.getUseRootSift() );
                 } else if( conf.getDescMode() == Config::PLIGrid ) {
                     ext_desc_pligrid_starter
@@ -285,7 +302,8 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getExtrema( level ),
                           oct_obj.getDescriptors( level ),
                           oct_obj.getFeatToExtMapD( level ),
-                          oct_obj.getDataTexLinear( level ),
+                          oct_obj.getDataTexLinear( ),
+                          level,
                           conf.getUseRootSift() );
                 }
             }

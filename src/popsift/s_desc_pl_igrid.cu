@@ -21,7 +21,8 @@ void ext_desc_pl_load_igrid( float2              gradcache[40][40],
                              const float         ang,
                              const float         sig,
                              const Extremum*     ext,
-                             cudaTextureObject_t layer_tex )
+                             cudaTextureObject_t layer_tex,
+                             const int           level )
 {
     const float x    = ext->xpos;
     const float y    = ext->ypos;
@@ -57,7 +58,8 @@ void ext_desc_pl_load_igrid( float2              gradcache[40][40],
                                 gradcache[yd][xd].y,
                                 (pt+pix).x,
                                 (pt+pix).y,
-                                layer_tex );
+                                layer_tex,
+                                level );
         }
 
         __any(yd<40); // fake a barrier for a single warp only
@@ -168,9 +170,10 @@ void ext_desc_pl_igrid_sub( const int           ix,
 
 __global__
 void ext_desc_pl_igrid( Extremum*           extrema,
-                       Descriptor*         descs,
-                       int*                feat_to_ext_map,
-                       cudaTextureObject_t layer_tex )
+                        Descriptor*         descs,
+                        int*                feat_to_ext_map,
+                        cudaTextureObject_t layer_tex,
+                        const int           level )
 {
     const int   ix       = threadIdx.y;
     const int   iy       = threadIdx.z;
@@ -189,10 +192,11 @@ void ext_desc_pl_igrid( Extremum*           extrema,
     if( sig == 0 ) return;
 
     ext_desc_pl_load_igrid( gradcache,
-                           ang,
-                           sig,
-                           ext,
-                           layer_tex );
+                            ang,
+                            sig,
+                            ext,
+                            layer_tex,
+                            level );
 
     ext_desc_pl_igrid_sub( ix,
                           iy,

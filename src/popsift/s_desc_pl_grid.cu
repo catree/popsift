@@ -21,7 +21,8 @@ void ext_desc_pl_load_grid( float2              gradcache[40][40],
                             const float         ang,
                             const float         sig,
                             const Extremum*     ext,
-                            cudaTextureObject_t layer_tex )
+                            cudaTextureObject_t layer_tex,
+                            const int           level )
 {
     const float x    = ext->xpos;
     const float y    = ext->ypos;
@@ -57,7 +58,8 @@ void ext_desc_pl_load_grid( float2              gradcache[40][40],
                           gradcache[yd][xd].y,
                           int((pt+pix).x),
                           int((pt+pix).y),
-                          layer_tex );
+                          layer_tex,
+                          level );
         }
 
         __any(yd<40); // fake a barrier for a single warp only
@@ -170,7 +172,8 @@ __global__
 void ext_desc_pl_grid( Extremum*           extrema,
                        Descriptor*         descs,
                        int*                feat_to_ext_map,
-                       cudaTextureObject_t layer_tex )
+                       cudaTextureObject_t layer_tex,
+                       const int           level )
 {
     const int   ix       = threadIdx.y;
     const int   iy       = threadIdx.z;
@@ -192,7 +195,8 @@ void ext_desc_pl_grid( Extremum*           extrema,
                            ang,
                            sig,
                            ext,
-                           layer_tex );
+                           layer_tex,
+                           level );
 
     ext_desc_pl_grid_sub( ix,
                           iy,

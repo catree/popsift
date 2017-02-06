@@ -48,13 +48,13 @@ inline float compute_angle( int bin, float hc, float hn, float hp )
  */
 template<int HEIGHT>
 __global__
-void ori_par( Extremum*     extremum,
-              const int*    extrema_counter,
-              Plane2D_float layer )
+void ori_par( Extremum*           extremum,
+              const int*          extrema_counter,
+              cudaTextureObject_t layer,
+              const int           w,
+              const int           h,
+              const int           level )
 {
-    uint32_t w   = layer.getWidth();
-    uint32_t h   = layer.getHeight();
-
     const int extremum_index = blockIdx.x * blockDim.y + threadIdx.y;
 
     if( extremum_index >= *extrema_counter ) return; // a few trailing warps
@@ -96,10 +96,11 @@ void ori_par( Extremum*     extremum,
             float grad;
             float theta;
             get_gradiant( grad,
-                        theta,
-                        xx,
-                        yy,
-                        layer );
+                          theta,
+                          xx,
+                          yy,
+                          layer,
+                          level );
 
             float dx = xx - x;
             float dy = yy - y;
@@ -288,11 +289,14 @@ void ori_prefix_sum( int*      extrema_counter,
 
 #if __CUDA_ARCH__ > 350
 __global__
-void orientation_starter( Extremum*     extremum,
-                          int*          extrema_counter,
-                          int*          featvec_counter,
-                          int*          d_feat_to_ext_map,
-                          Plane2D_float layer )
+void orientation_starter( Extremum*           extremum,
+                          int*                extrema_counter,
+                          int*                featvec_counter,
+                          int*                d_feat_to_ext_map,
+                          cudaTextureObject_t layer,
+                          const int           w,
+                          const int           h,
+                          const int           level )
 {
     int num = *extrema_counter;
 
@@ -304,7 +308,10 @@ void orientation_starter( Extremum*     extremum,
             <<<grid,block>>>
             ( extremum,
               extrema_counter,
-              layer );
+              layer,
+              w,
+              h,
+              level );
     } else if( num > 0 ) {
         dim3 block( 32, 1 );
         dim3 grid( num );
@@ -313,7 +320,10 @@ void orientation_starter( Extremum*     extremum,
             <<<grid,block>>>
             ( extremum,
               extrema_counter,
-              layer );
+              layer,
+              w,
+              h,
+              level );
     }
 
     if( num > 0 ) {
@@ -330,11 +340,14 @@ void orientation_starter( Extremum*     extremum,
 }
 #else // __CUDA_ARCH__ > 350
 __global__
-void orientation_starter( Extremum*     extremum,
-                          int*          extrema_counter,
-                          int*          featvec_counter,
-                          int*          d_feat_to_ext_map,
-                          Plane2D_float layer )
+void orientation_starter( Extremum*           extremum,
+                          int*                extrema_counter,
+                          int*                featvec_counter,
+                          int*                d_feat_to_ext_map,
+                          cudaTextureObject_t layer,
+                          const int           w,
+                          const int           h,
+                          const int           level )
 {
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
 }
@@ -358,7 +371,10 @@ void Pyramid::orientation( const Config& conf )
                       oct_obj.getExtremaCtPtrD( level ),
                       oct_obj.getFeatVecCtPtrD( level ),
                       oct_obj.getFeatToExtMapD( level ),
-                      oct_obj.getData( level ) );
+                      oct_obj.getDataTexPoint( ),
+                      oct_obj.getWidth( ),
+                      oct_obj.getHeight( ),
+                      level );
             }
         }
     } else {
@@ -392,7 +408,10 @@ void Pyramid::orientation( const Config& conf )
                             <<<grid,block,0,oct_str>>>
                             ( oct_obj.getExtrema( level ),
                               oct_obj.getExtremaCtPtrD( level ),
-                              oct_obj.getData( level ) );
+                              oct_obj.getDataTexPoint( ),
+                              oct_obj.getWidth( ),
+                              oct_obj.getHeight( ),
+                              level );
                     } else {
                         block.x = 32;
                         block.y = 1;
@@ -402,7 +421,10 @@ void Pyramid::orientation( const Config& conf )
                             <<<grid,block,0,oct_str>>>
                             ( oct_obj.getExtrema( level ),
                               oct_obj.getExtremaCtPtrD( level ),
-                              oct_obj.getData( level ) );
+                              oct_obj.getDataTexPoint( ),
+                              oct_obj.getWidth( ),
+                              oct_obj.getHeight( ),
+                              level );
                     }
 
                     block.x = 32;

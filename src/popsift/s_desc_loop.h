@@ -14,13 +14,15 @@ __global__
 void ext_desc_loop( popsift::Extremum*     extrema,
                     popsift::Descriptor*   descs,
                     int*                   feat_to_ext_map,
-                    popsift::Plane2D_float layer,
-                    cudaTextureObject_t    layer_tex );
+                    cudaTextureObject_t    layer_tex,
+                    const int              width,
+                    const int              height,
+                    const int              level );
 
 namespace popsift
 {
 
-inline static bool start_ext_desc_loop( Octave& oct_obj, int level )
+inline static bool start_ext_desc_loop( Octave& oct_obj, const int level )
 {
     dim3 block;
     dim3 grid;
@@ -39,8 +41,10 @@ inline static bool start_ext_desc_loop( Octave& oct_obj, int level )
         ( oct_obj.getExtrema( level ),
           oct_obj.getDescriptors( level ),
           oct_obj.getFeatToExtMapD( level ),
-          oct_obj.getData( level ),
-          oct_obj.getDataTexPoint( level ) );
+          oct_obj.getDataTexPoint( ),
+          oct_obj.getWidth(),
+          oct_obj.getHeight(),
+          level );
 
     return true;
 }
@@ -50,8 +54,10 @@ void start_ext_desc_loop( int*                featvec_counter,
                           Extremum*           extrema,
                           Descriptor*         descs,
                           int*                feat_to_ext_map,
-                          Plane2D_float       layer,
-                          cudaTextureObject_t layer_tex )
+                          cudaTextureObject_t layer_tex,
+                          const int           width,
+                          const int           height,
+                          const int           level )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;
@@ -69,8 +75,10 @@ void start_ext_desc_loop( int*                featvec_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          layer,
-          layer_tex );
+          layer_tex,
+          width,
+          height,
+          level );
 #endif
 }
 

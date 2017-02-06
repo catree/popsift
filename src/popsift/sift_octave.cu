@@ -32,8 +32,7 @@ using namespace std;
 namespace popsift {
 
     Octave::Octave()
-        : _data(0)
-        , _h_extrema_counter(0)
+        : _h_extrema_counter(0)
         , _d_extrema_counter(0)
         , _h_featvec_counter(0)
         , _d_featvec_counter(0)
@@ -294,26 +293,11 @@ namespace popsift {
 
         struct stat st = { 0 };
 
+#if 0
         {
-            if (stat("dir-octave", &st) == -1) {
-                mkdir("dir-octave", 0700);
-            }
-
-            ostringstream ostr;
-            ostr << "dir-octave/" << basename << "-o-" << octave << "-l-" << level << ".pgm";
-            popsift::write_plane2Dunscaled(ostr.str().c_str(), true, getData(level));
-
-            if (stat("dir-octave-dump", &st) == -1) {
-                mkdir("dir-octave-dump", 0700);
-            }
-
-            ostringstream ostr2;
-            ostr2 << "dir-octave-dump/" << basename << "-o-" << octave << "-l-" << level << ".dump";
-            popsift::dump_plane2Dfloat(ostr2.str().c_str(), true, getData(level));
-
             if (level == 0) {
-                int width = getData(level).getWidth();
-                int height = getData(level).getHeight();
+                int width  = getWidth();
+                int height = getHeight();
 
                 Plane2D_float hostPlane_f;
                 hostPlane_f.allocHost(width, height, CudaAllocated);
@@ -370,11 +354,20 @@ namespace popsift {
                 hostPlane_f.freeHost(CudaAllocated);
             }
         }
+#endif
 
-        if (level == _levels - 1) {
+        if( level == 0 ) {
             cudaError_t err;
-            int width = getData(0).getWidth();
-            int height = getData(0).getHeight();
+            int width  = getWidth();
+            int height = getHeight();
+
+            if (stat("dir-octave", &st) == -1) {
+                mkdir("dir-octave", 0700);
+            }
+
+            if (stat("dir-octave-dump", &st) == -1) {
+                mkdir("dir-octave-dump", 0700);
+            }
 
             if (stat("dir-dog", &st) == -1) {
                 mkdir("dir-dog", 0700);
@@ -389,32 +382,52 @@ namespace popsift {
             }
 
             float* array;
-            POP_CUDA_MALLOC_HOST(&array, width * height * (_levels - 1) * sizeof(float));
+            POP_CUDA_MALLOC_HOST(&array, width * height * _levels * sizeof(float));
 
             cudaMemcpy3DParms s = { 0 };
+            memset( &s, 0, sizeof(cudaMemcpy3DParms) );
+            s.srcArray = _data;
+            s.dstPtr   = make_cudaPitchedPtr( array, width * sizeof(float), width, height );
+            s.extent   = make_cudaExtent( width, height, _levels );
+            s.kind     = cudaMemcpyDeviceToHost;
+            err = cudaMemcpy3D(&s);
+            POP_CUDA_FATAL_TEST(err, "cudaMemcpy3D failed: ");
+
+            for( int l = 0; l<_levels; l++ ) {
+                Plane2D_float p(width, height, &array[l*width*height], width * sizeof(float));
+
+                ostringstream ostr;
+                ostr << "dir-octave/" << basename << "-o-" << octave << "-l-" << level << ".pgm";
+                popsift::write_plane2Dunscaled( ostr.str().c_str(), false, p );
+
+                ostringstream ostr2;
+                ostr2 << "dir-octave-dump/" << basename << "-o-" << octave << "-l-" << level << ".dump";
+                popsift::dump_plane2Dfloat(ostr2.str().c_str(), false, p );
+            }
+
+            memset( &s, 0, sizeof(cudaMemcpy3DParms) );
             s.srcArray = _dog_3d;
             s.dstPtr = make_cudaPitchedPtr(array, width * sizeof(float), width, height);
             s.extent = make_cudaExtent(width, height, _levels - 1);
             s.kind = cudaMemcpyDeviceToHost;
             err = cudaMemcpy3D(&s);
-            POP_CUDA_FATAL_TEST(err, "cudaMemcpy3D failed: "); \
+            POP_CUDA_FATAL_TEST(err, "cudaMemcpy3D failed: ");
 
-                for (int l = 0; l<_levels - 1; l++) {
-                    Plane2D_float p(width, height, &array[l*width*height], width * sizeof(float));
+            for (int l = 0; l<_levels - 1; l++) {
+                Plane2D_float p(width, height, &array[l*width*height], width * sizeof(float));
 
-                    ostringstream ostr;
-                    ostr << "dir-dog/d-" << basename << "-o-" << octave << "-l-" << l << ".pgm";
-                    // cerr << "Writing " << ostr.str() << endl;
-                    popsift::write_plane2D(ostr.str().c_str(), true, p);
+                ostringstream ostr;
+                ostr << "dir-dog/d-" << basename << "-o-" << octave << "-l-" << l << ".pgm";
+                popsift::write_plane2D(ostr.str().c_str(), false, p);
 
-                    ostringstream pstr;
-                    pstr << "dir-dog-txt/d-" << basename << "-o-" << octave << "-l-" << l << ".txt";
-                    popsift::write_plane2Dunscaled(pstr.str().c_str(), true, p, 127);
+                ostringstream pstr;
+                pstr << "dir-dog-txt/d-" << basename << "-o-" << octave << "-l-" << l << ".txt";
+                popsift::write_plane2Dunscaled(pstr.str().c_str(), false, p, 127);
 
-                    ostringstream qstr;
-                    qstr << "dir-dog-dump/d-" << basename << "-o-" << octave << "-l-" << l << ".dump";
-                    popsift::dump_plane2Dfloat(qstr.str().c_str(), true, p);
-                }
+                ostringstream qstr;
+                qstr << "dir-dog-dump/d-" << basename << "-o-" << octave << "-l-" << l << ".dump";
+                popsift::dump_plane2Dfloat(qstr.str().c_str(), false, p);
+            }
 
             POP_CUDA_FREE_HOST(array);
         }
@@ -423,109 +436,80 @@ namespace popsift {
     void Octave::alloc_data_planes()
     {
         cudaError_t err;
-        void*       ptr;
-        size_t      pitch;
 
-        _data = new Plane2D_float[_levels];
+        _data_desc.f = cudaChannelFormatKindFloat;
+        _data_desc.x = 32;
+        _data_desc.y = 0;
+        _data_desc.z = 0;
+        _data_desc.w = 0;
 
-        err = cudaMallocPitch(&ptr, &pitch, _w * sizeof(float), _h * _levels);
-        POP_CUDA_FATAL_TEST(err, "Cannot allocate data CUDA memory: ");
-        for (int i = 0; i<_levels; i++) {
-            _data[i] = Plane2D_float(_w,
-                _h,
-                (float*)((intptr_t)ptr + i*(pitch*_h)),
-                pitch);
-        }
+        _data_ext.width  = _w; // for cudaMalloc3DArray, width in elements
+        _data_ext.height = _h;
+        _data_ext.depth  = _levels;
+
+        err = cudaMalloc3DArray( &_data,
+                                 &_data_desc,
+                                 _data_ext,
+                                 cudaArrayLayered | cudaArraySurfaceLoadStore);
+        POP_CUDA_FATAL_TEST(err, "Could not allocate Blur level array: ");
     }
 
     void Octave::free_data_planes()
     {
-        POP_CUDA_FREE(_data[0].data);
-        delete[] _data;
+        cudaError_t err;
+
+        err = cudaFreeArray( _data );
+        POP_CUDA_FATAL_TEST(err, "Could not free Blur level array: ");
     }
 
     void Octave::alloc_data_tex()
     {
         cudaError_t err;
 
-        _data_tex = new cudaTextureObject_t[_levels];
+        cudaResourceDesc res_desc;
+        res_desc.resType = cudaResourceTypeArray;
+        res_desc.res.array.array = _data;
 
-        cudaTextureDesc      data_tex_desc;
-        cudaResourceDesc     data_res_desc;
+        err = cudaCreateSurfaceObject(&_data_surf, &res_desc);
+        POP_CUDA_FATAL_TEST(err, "Could not create Blur data surface: ");
 
-        memset(&data_tex_desc, 0, sizeof(cudaTextureDesc));
-        data_tex_desc.normalizedCoords = 0; // addressed (x,y) in [width,height]
-        data_tex_desc.addressMode[0] = cudaAddressModeClamp;
-        data_tex_desc.addressMode[1] = cudaAddressModeClamp;
-        data_tex_desc.addressMode[2] = cudaAddressModeClamp;
-        data_tex_desc.readMode = cudaReadModeElementType; // read as float
-        data_tex_desc.filterMode = cudaFilterModePoint; // bilinear interpolation
+        cudaTextureDesc      tex_desc;
 
-        memset(&data_res_desc, 0, sizeof(cudaResourceDesc));
-        data_res_desc.resType = cudaResourceTypePitch2D;
-        data_res_desc.res.pitch2D.desc.f = cudaChannelFormatKindFloat;
-        data_res_desc.res.pitch2D.desc.x = 32;
-        data_res_desc.res.pitch2D.desc.y = 0;
-        data_res_desc.res.pitch2D.desc.z = 0;
-        data_res_desc.res.pitch2D.desc.w = 0;
-        for (int i = 0; i<_levels; i++) {
-            data_res_desc.res.pitch2D.devPtr = _data[i].data;
-            data_res_desc.res.pitch2D.pitchInBytes = _data[i].step;
-            data_res_desc.res.pitch2D.width = _data[i].getCols();
-            data_res_desc.res.pitch2D.height = _data[i].getRows();
+        memset(&tex_desc, 0, sizeof(cudaTextureDesc));
+        tex_desc.normalizedCoords = 0; // addressed (x,y) in [width,height]
+        tex_desc.addressMode[0]   = cudaAddressModeClamp;
+        tex_desc.addressMode[1]   = cudaAddressModeClamp;
+        tex_desc.addressMode[2]   = cudaAddressModeClamp;
+        tex_desc.readMode         = cudaReadModeElementType; // read as float
+        tex_desc.filterMode       = cudaFilterModePoint; // no interpolation
 
-            err = cudaCreateTextureObject(&_data_tex[i],
-                &data_res_desc,
-                &data_tex_desc, 0);
-            POP_CUDA_FATAL_TEST(err, "Could not create texture object: ");
-        }
+        err = cudaCreateTextureObject( &_data_tex_point, &res_desc, &tex_desc, 0 );
+        POP_CUDA_FATAL_TEST(err, "Could not create Blur data point texture: ");
 
-        _data_tex_linear = new cudaTextureObject_t[_levels];
+        memset(&tex_desc, 0, sizeof(cudaTextureDesc));
+        tex_desc.normalizedCoords = 0; // addressed (x,y) in [width,height]
+        tex_desc.addressMode[0]   = cudaAddressModeClamp;
+        tex_desc.addressMode[1]   = cudaAddressModeClamp;
+        tex_desc.addressMode[2]   = cudaAddressModeClamp;
+        tex_desc.readMode         = cudaReadModeElementType; // read as float
+        tex_desc.filterMode       = cudaFilterModeLinear; // no interpolation
 
-        memset(&data_tex_desc, 0, sizeof(cudaTextureDesc));
-        data_tex_desc.normalizedCoords = 0; // addressed (x,y) in [width,height]
-        data_tex_desc.addressMode[0] = cudaAddressModeClamp;
-        data_tex_desc.addressMode[1] = cudaAddressModeClamp;
-        data_tex_desc.addressMode[2] = cudaAddressModeClamp;
-        data_tex_desc.readMode = cudaReadModeElementType; // read as float
-        data_tex_desc.filterMode = cudaFilterModeLinear; // bilinear interpolation
-
-        memset(&data_res_desc, 0, sizeof(cudaResourceDesc));
-        data_res_desc.resType = cudaResourceTypePitch2D;
-        data_res_desc.res.pitch2D.desc.f = cudaChannelFormatKindFloat;
-        data_res_desc.res.pitch2D.desc.x = 32;
-        data_res_desc.res.pitch2D.desc.y = 0;
-        data_res_desc.res.pitch2D.desc.z = 0;
-        data_res_desc.res.pitch2D.desc.w = 0;
-        for (int i = 0; i<_levels; i++) {
-            data_res_desc.res.pitch2D.devPtr = _data[i].data;
-            data_res_desc.res.pitch2D.pitchInBytes = _data[i].step;
-            data_res_desc.res.pitch2D.width = _data[i].getCols();
-            data_res_desc.res.pitch2D.height = _data[i].getRows();
-
-            err = cudaCreateTextureObject(&_data_tex_linear[i],
-                &data_res_desc,
-                &data_tex_desc, 0);
-            POP_CUDA_FATAL_TEST(err, "Could not create texture object: ");
-        }
+        err = cudaCreateTextureObject( &_data_tex_linear, &res_desc, &tex_desc, 0 );
+        POP_CUDA_FATAL_TEST(err, "Could not create Blur data point texture: ");
     }
 
     void Octave::free_data_tex()
     {
         cudaError_t err;
 
-        for (int i = 0; i<_levels; i++) {
-            err = cudaDestroyTextureObject(_data_tex[i]);
-            POP_CUDA_FATAL_TEST(err, "Could not destroy texture object: ");
-        }
+        err = cudaDestroyTextureObject(_data_tex_point);
+        POP_CUDA_FATAL_TEST(err, "Could not destroy Blur data point texture: ");
 
-        delete[] _data_tex;
+        err = cudaDestroyTextureObject(_data_tex_linear);
+        POP_CUDA_FATAL_TEST(err, "Could not destroy Blur data linear texture: ");
 
-        for (int i = 0; i<_levels; i++) {
-            err = cudaDestroyTextureObject(_data_tex_linear[i]);
-            POP_CUDA_FATAL_TEST(err, "Could not destroy texture object: ");
-        }
-        delete[] _data_tex_linear;
+        err = cudaDestroySurfaceObject(_data_surf);
+        POP_CUDA_FATAL_TEST(err, "Could not destroy Blur data surface: ");
     }
 
     void Octave::alloc_interm_plane()

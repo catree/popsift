@@ -22,7 +22,8 @@ void ext_desc_grid_sub( const int           ix,
                         const float         ang,
                         const Extremum*     ext,
                         float* __restrict__ features,
-                        cudaTextureObject_t layer_tex )
+                        cudaTextureObject_t layer_tex,
+                        const int           level )
 {
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
@@ -73,7 +74,7 @@ void ext_desc_grid_sub( const int           ix,
 
         float mod;
         float th;
-        get_gradiant( mod, th, int((pt+pix).x), int((pt+pix).y), layer_tex );
+        get_gradiant( mod, th, int((pt+pix).x), int((pt+pix).y), layer_tex, level );
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
@@ -125,7 +126,8 @@ __global__
 void ext_desc_grid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    cudaTextureObject_t layer_tex )
+                    cudaTextureObject_t layer_tex,
+                    const int           level )
 {
     const int   ix       = threadIdx.y;
     const int   iy       = threadIdx.z;
@@ -143,6 +145,7 @@ void ext_desc_grid( Extremum*           extrema,
                        ang,
                        ext,
                        desc->features,
-                       layer_tex );
+                       layer_tex,
+                       level );
 }
 

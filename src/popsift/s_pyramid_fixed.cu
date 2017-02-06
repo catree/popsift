@@ -42,28 +42,91 @@ inline float octave_fixed_horiz( float fval, const float* filter )
     return fval;
 }
 
+namespace absoluteTexAddress {
+/* read from point-addressable texture of image from previous octave */
+
 template<int SHIFT>
 __device__
-inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, const float* filter )
+inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, int level, const float* filter )
 {
     /* Input thread N takes as input the (idx,idy) position of the pixel that it
      * will eventually write (The 2*SHIFT rightmost threads will not write anything).
      * Thread N computes and returns the vertical filter at position N-SHIFT.
      */
     const float TSHIFT = 0.5f;
-    float       val    = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+TSHIFT );
+    float       val    = tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy+TSHIFT, level );
 
     float       fval   = val * filter[0];
     #pragma unroll
     for( int i=1; i<=SHIFT; i++ ) {
-        val   = tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy-i+TSHIFT )
-              + tex2D<float>( src_data, idx-SHIFT+TSHIFT, idy+i+TSHIFT );
+        val   = tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy-i+TSHIFT, level )
+              + tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy+i+TSHIFT, level );
         fval += val * filter[i];
     }
 
     return fval;
 }
 
+template<int SHIFT, int WIDTH, int HEIGHT, int LEVELS>
+__global__
+void octave_fixed( cudaTextureObject_t src_data,
+                   cudaSurfaceObject_t dst_data,
+                   const int           w,
+                   const int           h,
+                   cudaSurfaceObject_t dog_data )
+{
+    const int IDx   = threadIdx.x;
+    const int IDy   = threadIdx.y;
+    const int IDz   = threadIdx.z;
+    const int level = IDz + 1;
+
+    const float* filter = &d_gauss.abs_oN.filter[level*GAUSS_ALIGN];
+
+    const int idx = blockIdx.x * WIDTH      + IDx;
+    const int idy = blockIdx.y * blockDim.y + IDy;
+
+    float fval;
+    
+    fval = octave_fixed_vert<SHIFT>( src_data, idx, idy, 0, filter );
+
+    fval = octave_fixed_horiz<SHIFT>( fval, filter );
+
+    __shared__ float lx_val[HEIGHT][WIDTH][LEVELS];
+
+    if( IDx < WIDTH ) {
+        lx_val[IDy][IDx][IDz] = fval;
+    }
+    __syncthreads();
+
+    if( IDx < WIDTH ) {
+        const float TSHIFT = 0.5f;
+        const float l0_val = tex2DLayered<float>( src_data, idx+TSHIFT, idy+TSHIFT, 0 );
+        const float dogval = ( IDz == 0 )
+                           ? fval - l0_val
+                           : fval - lx_val[IDy][IDx][IDz-1];
+
+        const bool i_write = ( idx < w && idy < h );
+
+        if( i_write ) {
+            surf2DLayeredwrite( fval, dst_data,
+                                idx*4, idy,
+                                IDz + 1,
+                                cudaBoundaryModeZero );
+
+            surf2DLayeredwrite( dogval, dog_data,
+                                idx*4, idy,
+                                IDz,
+                                cudaBoundaryModeZero );
+        }
+    }
+}
+
+} // namespace absoluteTexAddress
+
+namespace relativeTexAddress {
+/* read from ratio-addressable texture of input image */
+
+/* reading from the texture laid over the input image */
 template<int SHIFT>
 __device__
 inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, const float mul_w, const float mul_h, float tshift, const float* filter )
@@ -84,90 +147,20 @@ inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, 
     return fval;
 }
 
-namespace absoluteTexAddress {
-/* read from point-addressable texture of image from previous octave */
-
 template<int SHIFT, int WIDTH, int HEIGHT, int LEVELS>
 __global__
 void octave_fixed( cudaTextureObject_t src_data,
-                   Plane2D_float       dst_data,
-                   cudaSurfaceObject_t dog_data )
-{
-    const int IDx   = threadIdx.x;
-    const int IDy   = threadIdx.y;
-    const int IDz   = threadIdx.z;
-    const int w     = dst_data.getWidth();
-    const int h     = dst_data.getHeight();
-    const int level = IDz + 1;
-    const int plane_rows = IDz * h;
-
-    const float* filter = &d_gauss.abs_oN.filter[level*GAUSS_ALIGN];
-
-    Plane2D_float destination( w, h,
-                               dst_data.ptr( plane_rows ),
-                               dst_data.getPitch() );
-
-    const int idx = blockIdx.x * WIDTH      + IDx;
-    const int idy = blockIdx.y * blockDim.y + IDy;
-
-    float fval;
-    
-    fval = octave_fixed_vert<SHIFT>( src_data, idx, idy, filter );
-
-    fval = octave_fixed_horiz<SHIFT>( fval, filter );
-
-    __shared__ float lx_val[HEIGHT][WIDTH][LEVELS];
-
-    if( IDx < WIDTH ) {
-        lx_val[IDy][IDx][IDz] = fval;
-    }
-    __syncthreads();
-
-    if( IDx < WIDTH ) {
-        const float TSHIFT = 0.5f;
-        const float l0_val = tex2D<float>( src_data, idx+TSHIFT, idy+TSHIFT );
-        const float dogval = ( IDz == 0 )
-                           ? fval - l0_val
-                           : fval - lx_val[IDy][IDx][IDz-1];
-
-        const bool i_write = ( idx < w && idy < h );
-
-        if( i_write ) {
-            destination.ptr(idy)[idx] = fval;
-
-            surf2DLayeredwrite( dogval, dog_data,
-                                idx*4, idy,
-                                threadIdx.z,
-                                cudaBoundaryModeZero );
-        }
-    }
-}
-
-} // namespace absoluteTexAddress
-
-namespace relativeTexAddress {
-/* read from ratio-addressable texture of input image */
-
-template<int SHIFT, int WIDTH, int HEIGHT, int LEVELS>
-__global__
-void octave_fixed( cudaTextureObject_t src_data,
-                   Plane2D_float       dst_data,
+                   cudaSurfaceObject_t dst_data,
                    cudaSurfaceObject_t dog_data,
+                   const int           w,
+                   const int           h,
                    const float         tshift )
 {
     const int IDx   = threadIdx.x;
     const int IDy   = threadIdx.y;
-    const int IDz   = threadIdx.z;
-    const int w     = dst_data.getWidth();
-    const int h     = dst_data.getHeight();
-    const int level = IDz;
-    const int plane_rows = IDz * h;
+    const int level = threadIdx.z;
 
     const float* filter = &d_gauss.abs_o0.filter[level*GAUSS_ALIGN];
-
-    Plane2D_float destination( w, h,
-                               dst_data.ptr( plane_rows ),
-                               dst_data.getPitch() );
 
     const int idx = blockIdx.x * WIDTH      + IDx;
     const int idy = blockIdx.y * blockDim.y + IDy;
@@ -185,22 +178,26 @@ void octave_fixed( cudaTextureObject_t src_data,
     __shared__ float lx_val[HEIGHT][WIDTH][LEVELS];
 
     if( IDx < WIDTH ) {
-        lx_val[IDy][IDx][IDz] = fval;
+        lx_val[IDy][IDx][level] = fval;
     }
     __syncthreads();
 
     const bool i_write = ( idx < w && idy < h );
 
     if( IDx < WIDTH && i_write ) {
-            destination.ptr(idy)[idx] = fval;
+            // destination.ptr(idy)[idx] = fval;
+            surf2DLayeredwrite( fval, dst_data,
+                                idx*4, idy,
+                                level,
+                                cudaBoundaryModeZero );
 
-        if( IDz > 0 ) {
-            float dogval = fval - lx_val[IDy][IDx][IDz-1];
+        if( level > 0 ) {
+            float dogval = fval - lx_val[IDy][IDx][level-1];
             // left side great
             // right side buggy
             surf2DLayeredwrite( dogval, dog_data,
                                 idx*4, idy,
-                                threadIdx.z-1,
+                                level-1,
                                 cudaBoundaryModeZero );
         }
     }
@@ -239,9 +236,11 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
         gauss::fixedSpan::relativeTexAddress::octave_fixed
             <SHIFT,w_conf,h_conf,l_conf>
             <<<grid,block,0,stream>>>
-            ( base->getInputTexture(),
-              oct_obj.getData(0),
+            ( base->getInputTexture( ),
+              oct_obj.getDataSurface( ),
               oct_obj.getDogSurface( ),
+              oct_obj.getWidth(),
+              oct_obj.getHeight(),
               tshift );
     } else {
         const int x_size = 32;
@@ -261,8 +260,10 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
         gauss::fixedSpan::absoluteTexAddress::octave_fixed
             <SHIFT,w_conf,h_conf,l_conf>
             <<<grid,block,0,stream>>>
-            ( oct_obj.getDataTexPoint(0),
-              oct_obj.getData(1),
+            ( oct_obj.getDataTexPoint( ),
+              oct_obj.getDataSurface( ),
+              oct_obj.getWidth(),
+              oct_obj.getHeight(),
               oct_obj.getDogSurface( ) );
     }
 }
