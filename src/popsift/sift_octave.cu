@@ -397,11 +397,11 @@ namespace popsift {
                 Plane2D_float p(width, height, &array[l*width*height], width * sizeof(float));
 
                 ostringstream ostr;
-                ostr << "dir-octave/" << basename << "-o-" << octave << "-l-" << level << ".pgm";
+                ostr << "dir-octave/" << basename << "-o-" << octave << "-l-" << l << ".pgm";
                 popsift::write_plane2Dunscaled( ostr.str().c_str(), false, p );
 
                 ostringstream ostr2;
-                ostr2 << "dir-octave-dump/" << basename << "-o-" << octave << "-l-" << level << ".dump";
+                ostr2 << "dir-octave-dump/" << basename << "-o-" << octave << "-l-" << l << ".dump";
                 popsift::dump_plane2Dfloat(ostr2.str().c_str(), false, p );
             }
 

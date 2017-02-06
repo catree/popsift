@@ -503,15 +503,15 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 template<int HEIGHT, int sift_mode>
 __global__
 void find_extrema_in_dog( cudaTextureObject_t dog,
-                             int                 octave,
-                             int                 level,
-                             int                 width,
-                             int                 height,
-                             const uint32_t      maxlevel,
-                             int*                extrema_counter,
-                             Extremum*           d_extrema,
-                             int*                d_number_of_blocks,
-                             int                 number_of_blocks )
+                          int                 octave,
+                          int                 level,
+                          int                 width,
+                          int                 height,
+                          const uint32_t      maxlevel,
+                          int*                extrema_counter,
+                          Extremum*           d_extrema,
+                          int*                d_number_of_blocks,
+                          int                 number_of_blocks )
 {
     Extremum ec;
 
