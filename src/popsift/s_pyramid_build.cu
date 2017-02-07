@@ -52,7 +52,7 @@ void horiz( cudaTextureObject_t src_data,
         out += ( v2 * g );
     }
     const float& g  = filter[0];
-    const float v3 = tex2D<float>( src_data, off_x+0.5f, blockIdx.y+0.5f );
+    const float v3 = tex2DLayered<float>( src_data, off_x+0.5f, blockIdx.y+0.5f, src_level );
     out += ( v3 * g );
 
     dst_data.ptr(blockIdx.y)[off_x] = out;
@@ -211,7 +211,7 @@ void get_by_2_pick_every_second( cudaTextureObject_t src_data,
     const int read_x = clamp( idx << 1, 0, src_w );
     const int read_y = clamp( idy << 1, 0, src_h );
 
-    const float val = tex2DLayered<float>( src_data, read_x, read_y, src_level );
+    const float val = tex2DLayered<float>( src_data, read_x + 0.5f, read_y + 0.5f, src_level );
 
     surf2DLayeredwrite( val, dst_data, idx*4, idy, 0, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = val;
 }
@@ -230,8 +230,8 @@ void make_dog( cudaTextureObject_t src_data,
     const int r_x = clamp( idx, w );
     const int r_y = clamp( idy, h );
 
-    const float b = tex2DLayered<float>( src_data, r_x, r_y, level+1 );
-    const float a = tex2DLayered<float>( src_data, r_x, r_y, level );
+    const float b = tex2DLayered<float>( src_data, r_x + 0.5f, r_y + 0.5f, level+1 );
+    const float a = tex2DLayered<float>( src_data, r_x + 0.5f, r_y + 0.5f, level );
     const float c = b - a;
 
     surf2DLayeredwrite( c, dog_data, idx*4, idy, level, cudaBoundaryModeZero );

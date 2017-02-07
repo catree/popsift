@@ -55,8 +55,8 @@ void get_gradiant( float&              grad,
 {
     grad  = 0.0f;
     theta = 0.0f;
-    float dx = tex2DLayered<float>( layer, x+1, y, level ) - tex2DLayered<float>( layer, x-1, y, level );
-    float dy = tex2DLayered<float>( layer, x, y+1, level ) - tex2DLayered<float>( layer, x, y-1, level );
+    float dx = tex2DLayered<float>( layer, x+1.0f+0.5f, y+0.5f, level ) - tex2DLayered<float>( layer, x-1.0f+0.5f, y+0.5f, level );
+    float dy = tex2DLayered<float>( layer, x+0.5f, y+1.0f+0.5f, level ) - tex2DLayered<float>( layer, x+0.5f, y-1.0f+0.5f, level );
     grad     = hypotf( dx, dy ); // __fsqrt_rz(dx*dx + dy*dy);
     theta    = atan2f(dy, dx);
 }

@@ -52,7 +52,7 @@ inline void extremum_cmp( float val, float f, uint32_t& gt, uint32_t& lt, uint32
 }
 
 
-#define TX(dx,dy,dz) tex2DLayered<float>( obj, x+dx, y+dy, z+dz )
+#define TX(dx,dy,dz) tex2DLayered<float>( obj, x+dx+0.5f, y+dy+0.5f, z+dz )
 
 __device__
 static
@@ -336,7 +336,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         }
     }
 
-    const float val = tex2DLayered<float>( dog, x, y, level );
+    const float val = tex2DLayered<float>( dog, x+0.5f, y+0.5f, level );
 
     ModeFunctions<sift_mode> f;
     if( not f.first_contrast_ok( val ) ) return false;
@@ -364,12 +364,12 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 
         // const int z = level - 1;
         /* compute gradient */
-        const float x2y1z1 = tex2DLayered<float>( dog, n.x+1, n.y  , n.z   );
-        const float x0y1z1 = tex2DLayered<float>( dog, n.x-1, n.y  , n.z   );
-        const float x1y2z1 = tex2DLayered<float>( dog, n.x  , n.y+1, n.z   );
-        const float x1y0z1 = tex2DLayered<float>( dog, n.x  , n.y-1, n.z   );
-        const float x1y1z2 = tex2DLayered<float>( dog, n.x  , n.y  , n.z+1 );
-        const float x1y1z0 = tex2DLayered<float>( dog, n.x  , n.y  , n.z-1 );
+        const float x2y1z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z   );
+        const float x0y1z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z   );
+        const float x1y2z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z   );
+        const float x1y0z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z   );
+        const float x1y1z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z+1 );
+        const float x1y1z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z-1 );
         // D.x = 0.5f * ( x2y1z1 - x0y1z1 );
         // D.y = 0.5f * ( x1y2z1 - x1y0z1 );
         // D.z = 0.5f * ( x1y1z2 - x1y1z0 );
@@ -378,7 +378,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         D.z = scalbnf( x1y1z2 - x1y1z0, -1 );
 
         /* compute Hessian */
-        const float x1y1z1 = tex2DLayered<float>( dog, n.x  , n.y  , n.z   );
+        const float x1y1z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z   );
         // DD.x = x2y1z1 + x0y1z1 - 2.0f * x1y1z1;
         // DD.y = x1y2z1 + x1y0z1 - 2.0f * x1y1z1;
         // DD.z = x1y1z2 + x1y1z0 - 2.0f * x1y1z1;
@@ -386,18 +386,18 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         DD.y = x1y2z1 + x1y0z1 - scalbnf( x1y1z1, 1 );
         DD.z = x1y1z2 + x1y1z0 - scalbnf( x1y1z1, 1 );
 
-        const float x0y0z1 = tex2DLayered<float>( dog, n.x-1, n.y-1, n.z   );
-        const float x0y1z0 = tex2DLayered<float>( dog, n.x-1, n.y  , n.z-1 );
-        const float x0y1z2 = tex2DLayered<float>( dog, n.x-1, n.y  , n.z+1 );
-        const float x0y2z1 = tex2DLayered<float>( dog, n.x-1, n.y+1, n.z   );
-        const float x1y0z0 = tex2DLayered<float>( dog, n.x  , n.y-1, n.z-1 );
-        const float x1y0z2 = tex2DLayered<float>( dog, n.x  , n.y-1, n.z+1 );
-        const float x1y2z0 = tex2DLayered<float>( dog, n.x  , n.y+1, n.z-1 );
-        const float x1y2z2 = tex2DLayered<float>( dog, n.x  , n.y+1, n.z+1 );
-        const float x2y0z1 = tex2DLayered<float>( dog, n.x+1, n.y-1, n.z   );
-        const float x2y1z0 = tex2DLayered<float>( dog, n.x+1, n.y  , n.z-1 );
-        const float x2y1z2 = tex2DLayered<float>( dog, n.x+1, n.y  , n.z+1 );
-        const float x2y2z1 = tex2DLayered<float>( dog, n.x+1, n.y+1, n.z   );
+        const float x0y0z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y-1+0.5f, n.z   );
+        const float x0y1z0 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z-1 );
+        const float x0y1z2 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z+1 );
+        const float x0y2z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y+1+0.5f, n.z   );
+        const float x1y0z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z-1 );
+        const float x1y0z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z+1 );
+        const float x1y2z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z-1 );
+        const float x1y2z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z+1 );
+        const float x2y0z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y-1+0.5f, n.z   );
+        const float x2y1z0 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z-1 );
+        const float x2y1z2 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z+1 );
+        const float x2y2z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y+1+0.5f, n.z   );
         // DX.x = 0.25f * ( x2y2z1 + x0y0z1 - x0y2z1 - x2y0z1 );
         // DX.y = 0.25f * ( x2y1z2 + x0y1z0 - x0y1z2 - x2y1z0 );
         // DX.z = 0.25f * ( x1y2z2 + x1y0z0 - x1y2z0 - x1y0z2 );
