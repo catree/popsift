@@ -308,6 +308,10 @@ void Pyramid::descriptors( const Config& conf )
                 }
             }
         }
+        cudaDeviceSynchronize();
+        ext_desc_loop_print_hitmiss
+            <<<1,1>>>
+            ( );
 
         cudaDeviceSynchronize();
 

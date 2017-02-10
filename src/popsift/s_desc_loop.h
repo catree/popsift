@@ -11,6 +11,9 @@
 #include "common/plane_2d.h"
 
 __global__
+void ext_desc_loop_print_hitmiss( );
+
+__global__
 void ext_desc_loop( popsift::Extremum*     extrema,
                     popsift::Descriptor*   descs,
                     int*                   feat_to_ext_map,
