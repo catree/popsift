@@ -35,7 +35,7 @@ endif()
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 
-set(CUDA_NVCC_FLAGS_DEBUG   "${CUDA_NVCC_FLAGS_DEBUG};-G;-g")
+# set(CUDA_NVCC_FLAGS_DEBUG   "${CUDA_NVCC_FLAGS_DEBUG};-G;-g")
 if(APPLE)
 elseif(NOT WIN32)
 set(CUDA_NVCC_FLAGS         "${CUDA_NVCC_FLAGS_DEBUG};-Xcompiler;-rdynamic;-lineinfo")
