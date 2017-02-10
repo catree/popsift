@@ -14,7 +14,9 @@ endif()
 
 find_package(Boost 1.53.0 REQUIRED COMPONENTS system program_options filesystem)
 
-add_executable(popsift-demo main.cpp pgmread.cpp)
+add_executable(popsift-demo
+               main.cpp
+	       pgmread.cpp pgmread.h)
 target_compile_definitions(popsift-demo PRIVATE ${Boost_DEFINITIONS} BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB)
 
 target_include_directories(popsift-demo PUBLIC ${Boost_INCLUDE_DIRS})

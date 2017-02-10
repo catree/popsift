@@ -1,22 +1,39 @@
-FILE( GLOB_RECURSE
-      src_files_cu
-      ./popsift/*.cu)
-
-FILE( GLOB_RECURSE
-      src_files_cpp
-      ./popsift/*.cpp)
-	  
-FILE( GLOB_RECURSE	
-	  src_files_h
-	  ./popsift/*.h)
-
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 
-
 CUDA_ADD_LIBRARY(popsift STATIC
-                 ${src_files_cu}
-                 ${src_files_cpp}
-				 ${src_files_h})
+	popsift/popsift.cu popsift/popsift.h
+	popsift/sift_constants.cu popsift/sift_constants.h
+	popsift/sift_conf.cu popsift/sift_conf.h
+	popsift/gauss_filter.cu popsift/gauss_filter.h
+	popsift/s_image.cu popsift/s_image.h
+	popsift/sift_pyramid.cu popsift/sift_pyramid.h
+	popsift/sift_octave.cu popsift/sift_octave.h
+	popsift/s_pyramid_build.cu
+	popsift/s_pyramid_fixed.cu
+	popsift/sift_extremum.h
+	popsift/sift_extremum.cu popsift/s_extrema.cu
+	popsift/s_orientation.cu
+	popsift/sift_desc.cu
+	popsift/s_desc_loop.cu popsift/s_desc_loop.h
+	popsift/s_desc_grid.cu popsift/s_desc_grid.h
+	popsift/s_desc_igrid.cu popsift/s_desc_igrid.h
+	popsift/s_desc_pl_grid.cu popsift/s_desc_pl_grid.h
+	popsift/s_desc_pl_igrid.cu popsift/s_desc_pl_igrid.h
+	popsift/s_desc_norm_rs.cu
+	popsift/s_desc_norm_l2.cu
+	popsift/s_desc_normalize.h
+	popsift/s_gradiant.h
+	popsift/s_solve.h
+	popsift/assist.cu popsift/assist.h
+	popsift/clamp.h
+	popsift/common/plane_2d.cu popsift/common/plane_2d.h
+	popsift/common/write_plane_2d.cu popsift/common/write_plane_2d.h
+	popsift/common/debug_macros.cpp popsift/common/debug_macros.h
+	popsift/common/device_prop.cpp popsift/common/device_prop.h
+	popsift/common/warp_bitonic_sort.h
+	popsift/common/excl_blk_prefix_sum.h
+	popsift/common/vec_macros.h
+	popsift/common/clamp.h )
 
 # BUILD_INTERFACE allows to include the directory with source only when target is
 # built in the building tree (ie, not from an install location)
@@ -95,3 +112,5 @@ install(EXPORT "${targets_export_name}"
 
 
 add_subdirectory(application)
+
+
