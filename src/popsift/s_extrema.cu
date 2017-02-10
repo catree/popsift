@@ -261,16 +261,16 @@ public:
     {
         if( last_it ) return 0;
 
-        float3 t;
+        int3 t;
 
-        t.x = ((d.x >= 0.6f && n.x < width-2) ?  1.0f : 0.0f )
-            + ((d.x <= -0.6f && n.x > 1)? -1.0f : 0.0f );
+        t.x = ((d.x >=  0.6f && n.x < width-2) ?  1 : 0 )
+            + ((d.x <= -0.6f && n.x > 1)       ? -1 : 0 );
 
-        t.y = ((d.y >= 0.6f && n.y < height-2)  ?  1.0f : 0.0f )
-            + ((d.y <= -0.6f && n.y > 1) ? -1.0f : 0.0f );
+        t.y = ((d.y >=  0.6f && n.y < height-2)  ?  1 : 0 )
+            + ((d.y <= -0.6f && n.y > 1)         ? -1 : 0 );
 
-        t.z = ((d.z >= 0.6f && n.z < maxlevel-1)  ?  1.0f : 0.0f )
-            + ((d.z <= -0.6f && n.z > 1) ? -1.0f : 0.0f );
+        t.z = ((d.z >=  0.6f && n.z < maxlevel-1)  ?  1 : 0 )
+            + ((d.z <= -0.6f && n.z > 1)           ? -1 : 0 );
 
         if( t.x == 0 && t.y == 0 && t.z == 0 ) {
             // no more changes
@@ -302,7 +302,6 @@ template<int sift_mode>
 __device__
 bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
                               int                 debug_octave,
-                              int                 level,
                               int                 width,
                               int                 height,
                               const uint32_t      maxlevel,
@@ -328,8 +327,10 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
      */
     const int block_x = blockIdx.x * 32;
     const int block_y = blockIdx.y * blockDim.y;
+    const int block_z = blockIdx.z;
     const int y       = block_y + threadIdx.y + 1;
     const int x       = block_x + threadIdx.x + 1;
+    const int level   = block_z + 1;
 
     if( sift_mode == Config::OpenCV ) {
         if( x < 5 || y < 5 || x >= width-5 || y >= height-5 ) {
@@ -471,9 +472,8 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
     const float det     = DD.x * DD.y - DX.x * DX.x;
     const float edgeval = tr * tr / det;
 
-    if( sift_mode == Config::PopSift && iter >= MAX_ITERATIONS && ( sn<0 || sn>maxlevel) ) {
-        return false;
-    }
+    // redundant check, verify() is stricter
+    // if( sift_mode == Config::PopSift && iter >= MAX_ITERATIONS && ( sn<0 || sn>maxlevel) ) { return false; }
 
     /* negative determinant => curvatures have different signs -> reject it */
     if (det <= 0.0f) {
@@ -515,11 +515,9 @@ void find_extrema_in_dog( cudaTextureObject_t dog,
                           int*                d_number_of_blocks,
                           int                 number_of_blocks )
 {
-    const int level = blockIdx.z + 1;
-
     Extremum ec;
 
-    bool indicator = find_extrema_in_dog_sub<sift_mode>( dog, octave, level, width, height, maxlevel, ec );
+    bool indicator = find_extrema_in_dog_sub<sift_mode>( dog, octave, width, height, maxlevel, ec );
 
     uint32_t write_index = extrema_count<HEIGHT>( indicator, extrema_counter );
 

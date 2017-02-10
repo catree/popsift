@@ -291,10 +291,6 @@ void Pyramid::descriptors( const Config& conf )
                           conf.getUseRootSift() );
             }
         }
-        cudaDeviceSynchronize();
-        ext_desc_loop_print_hitmiss
-            <<<1,1>>>
-            ( );
 
         cudaDeviceSynchronize();
 
@@ -325,17 +321,17 @@ void Pyramid::descriptors( const Config& conf )
 
             if( grid.x != 0 ) {
                 if( conf.getDescMode() == Config::Loop ) {
-                        start_ext_desc_loop( oct_obj );
+                    start_ext_desc_loop( oct_obj );
                 } else if( conf.getDescMode() == Config::Grid ) {
-                        start_ext_desc_grid( oct_obj );
+                    start_ext_desc_grid( oct_obj );
                 } else if( conf.getDescMode() == Config::IGrid ) {
-                        start_ext_desc_igrid( oct_obj );
+                    start_ext_desc_igrid( oct_obj );
                 } else if( conf.getDescMode() == Config::PLGrid ) {
-                        start_ext_desc_pl_grid( oct_obj );
+                    start_ext_desc_pl_grid( oct_obj );
                 } else if( conf.getDescMode() == Config::PLIGrid ) {
-                        start_ext_desc_pl_igrid( oct_obj );
+                    start_ext_desc_pl_igrid( oct_obj );
                 } else {
-                        POP_FATAL( "not yet" );
+                    POP_FATAL( "not yet" );
                 }
 
                 grid.x  = grid_divide( oct_obj.getFeatVecCountH( ), 32 );
@@ -344,15 +340,15 @@ void Pyramid::descriptors( const Config& conf )
                 block.z = 1;
 
                 if( conf.getUseRootSift() ) {
-                        normalize_histogram_root_sift
-                            <<<grid,block,0,oct_obj.getStream( )>>>
-                            ( oct_obj.getDescriptors( ),
-                              oct_obj.getFeatVecCountH( ) );
+                    normalize_histogram_root_sift
+                        <<<grid,block,0,oct_obj.getStream( )>>>
+                        ( oct_obj.getDescriptors( ),
+                          oct_obj.getFeatVecCountH( ) );
                 } else {
-                        normalize_histogram_l2
-                            <<<grid,block,0,oct_obj.getStream( )>>>
-                            ( oct_obj.getDescriptors( ),
-                              oct_obj.getFeatVecCountH( ) );
+                    normalize_histogram_l2
+                        <<<grid,block,0,oct_obj.getStream( )>>>
+                        ( oct_obj.getDescriptors( ),
+                          oct_obj.getFeatVecCountH( ) );
                 }
             }
         }

@@ -25,7 +25,7 @@ void ext_desc_pl_load_igrid( float2              gradcache[40][40],
 {
     const float x     = ext->xpos;
     const float y     = ext->ypos;
-    const int   level = ext->old_level;
+    const int   level = ext->lpos; // old_level;
 
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 

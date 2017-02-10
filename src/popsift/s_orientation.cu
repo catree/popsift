@@ -68,7 +68,7 @@ void ori_par( Extremum*           extremum,
     /* keypoint fractional geometry */
     const float x     = ext->xpos;
     const float y     = ext->ypos;
-    const int   level = ext->old_level;
+    const int   level = ext->lpos; // old_level;
     const float sig   = ext->sigma;
 
     /* orientation histogram radius */

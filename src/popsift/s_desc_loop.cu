@@ -16,11 +16,6 @@
 
 using namespace popsift;
 
-__device__ int hit;
-__device__ int miss;
-__device__ int miss_moved_1_up;
-__device__ int miss_moved_1_down;
-
 __device__ static inline
 void ext_desc_loop_sub( const float         ang,
                         const Extremum*     ext,
@@ -35,32 +30,13 @@ void ext_desc_loop_sub( const float         ang,
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
-    const int   level = ext->old_level;
+    const int   level = ext->lpos; // old_level;
     const float sig  = ext->sigma;
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 
     if( SBP == 0 ) {
         return;
     }
-
-#if 1
-if( threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 )
-{
-    if( level == ext->lpos ) {
-        atomicAdd( &hit, 1 );
-    } else {
-        if( level-1 == ext->lpos )
-            atomicAdd( &miss_moved_1_down, 1 );
-        else if( level+1 == ext->lpos )
-            atomicAdd( &miss_moved_1_up, 1 );
-        else {
-            atomicAdd( &miss, 1 );
-            printf("Big miss: %d vs %d at pos (%6.1f,%6.1f)\n", level, ext->lpos, x, y );
-        }
-    }
-}
-__syncthreads();
-#endif
 
     // const float cos_t = cosf(ang);
     // const float sin_t = sinf(ang);
@@ -153,16 +129,6 @@ __syncthreads();
     if( threadIdx.x < 8 ) {
         features[tile+threadIdx.x] = dpt[threadIdx.x];
     }
-}
-
-__global__
-void ext_desc_loop_print_hitmiss( )
-{
-    printf("Number of hits:                %d\n"
-           "Number of misses moved 1 up:   %d\n"
-           "Number of misses moved 1 down: %d\n"
-           "Number of other misses:        %d\n",
-           hit, miss_moved_1_up, miss_moved_1_down, miss );
 }
 
 __global__

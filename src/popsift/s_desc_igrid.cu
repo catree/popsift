@@ -28,7 +28,7 @@ void ext_desc_igrid_sub( const float         ang,
 
     const float x     = ext->xpos;
     const float y     = ext->ypos;
-    const int   level = ext->old_level;
+    const int   level = ext->lpos; // old_level;
     const float sig   = ext->sigma;
     const float SBP   = fabsf(DESC_MAGNIFY * sig);
 

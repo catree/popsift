@@ -29,7 +29,7 @@ void ext_desc_grid_sub( const int           ix,
     const float x     = ext->xpos;
     const float y     = ext->ypos;
     const float sig   = ext->sigma;
-    const int   level = ext->old_level;
+    const int   level = ext->lpos; // old_level;
     const float SBP   = fabsf(DESC_MAGNIFY * sig);
 
     if( SBP == 0 ) {
