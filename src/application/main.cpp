@@ -143,10 +143,36 @@ int main(int argc, char **argv)
     deviceInfo.set( 0, print_dev_info );
     if( print_dev_info ) deviceInfo.print( );
 
+    cudaEvent_t start;
+    cudaEvent_t init_end;
+    cudaEvent_t extract_end;
+    cudaEventCreate( &start );
+    cudaEventCreate( &init_end );
+    cudaEventCreate( &extract_end );
+    cudaDeviceSynchronize();
+    cudaEventRecord( start, 0 );
+
     PopSift PopSift( config );
+
+    cudaDeviceSynchronize();
+    cudaEventRecord( init_end, 0 );
 
     PopSift.init( 0, w, h, print_time_info );
     popsift::Features* feature_list = PopSift.execute( 0, image_data, print_time_info );
+
+    cudaDeviceSynchronize();
+    cudaEventRecord( extract_end, 0 );
+    cudaEventSynchronize( extract_end );
+    float init_ms;
+    float op_ms;
+    cudaEventElapsedTime( &init_ms, start, init_end );
+    cudaEventElapsedTime( &op_ms, init_end, extract_end );
+    cudaEventDestroy( start );
+    cudaEventDestroy( init_end );
+    cudaEventDestroy( extract_end );
+    cerr << "Time to initialize " << setprecision(3) << init_ms << "ms" << endl;
+    cerr << "Time to extract    " << setprecision(3) << op_ms << "ms" << endl;
+
     PopSift.uninit( 0 );
 
     std::ofstream of( "output-features.txt" );
