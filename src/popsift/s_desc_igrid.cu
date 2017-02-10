@@ -20,17 +20,17 @@ __device__ static inline
 void ext_desc_igrid_sub( const float         ang,
                          const Extremum*     ext,
                          float* __restrict__ features,
-                         cudaTextureObject_t texLinear,
-                         int                 level )
+                         cudaTextureObject_t texLinear )
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
-    const float x    = ext->xpos;
-    const float y    = ext->ypos;
-    const float sig  = ext->sigma;
-    const float SBP  = fabsf(DESC_MAGNIFY * sig);
+    const float x     = ext->xpos;
+    const float y     = ext->ypos;
+    const int   level = ext->old_level;
+    const float sig   = ext->sigma;
+    const float SBP   = fabsf(DESC_MAGNIFY * sig);
 
     if( SBP == 0 ) {
         return;
@@ -139,8 +139,7 @@ __global__
 void ext_desc_igrid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    cudaTextureObject_t texLinear,
-                    int                 level )
+                    cudaTextureObject_t texLinear )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];
@@ -153,7 +152,6 @@ void ext_desc_igrid( Extremum*           extrema,
     ext_desc_igrid_sub( ang,
                         ext,
                         desc->features,
-                        texLinear,
-                        level );
+                        texLinear );
 }
 

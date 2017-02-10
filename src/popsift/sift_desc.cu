@@ -35,7 +35,6 @@ __global__ void ext_desc_loop_starter( int*                featvec_counter,
                                        cudaTextureObject_t layer_tex,
                                        const int           w,
                                        const int           h,
-                                       const int           level,
                                        bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -47,8 +46,7 @@ __global__ void ext_desc_loop_starter( int*                featvec_counter,
                          feat_to_ext_map,
                          layer_tex,
                          w,
-                         h,
-                         level );
+                         h );
 
     dim3 grid;
     dim3 block;
@@ -75,7 +73,6 @@ __global__ void ext_desc_grid_starter( int*                featvec_counter,
                                        Descriptor*         descs,
                                        int*                feat_to_ext_map,
                                        cudaTextureObject_t layer_tex,
-                                       const int           level,
                                        bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -85,8 +82,7 @@ __global__ void ext_desc_grid_starter( int*                featvec_counter,
                          extrema,
                          descs,
                          feat_to_ext_map,
-                         layer_tex,
-                         level );
+                         layer_tex );
 
     dim3 block;
     dim3 grid;
@@ -113,7 +109,6 @@ __global__ void ext_desc_igrid_starter( int*                featvec_counter,
                                         Descriptor*         descs,
                                         int*                feat_to_ext_map,
                                         cudaTextureObject_t layer_tex,
-                                        const int           level,
                                         bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -123,8 +118,7 @@ __global__ void ext_desc_igrid_starter( int*                featvec_counter,
                          extrema,
                          descs,
                          feat_to_ext_map,
-                         layer_tex,
-                         level );
+                         layer_tex );
 
     dim3 block;
     dim3 grid;
@@ -151,7 +145,6 @@ __global__ void ext_desc_plgrid_starter( int*                featvec_counter,
                                          Descriptor*         descs,
                                          int*                feat_to_ext_map,
                                          cudaTextureObject_t layer_tex,
-                                         const int           level,
                                          bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -161,8 +154,7 @@ __global__ void ext_desc_plgrid_starter( int*                featvec_counter,
                             extrema,
                             descs,
                             feat_to_ext_map,
-                            layer_tex,
-                            level );
+                            layer_tex );
 
     dim3 block;
     dim3 grid;
@@ -189,7 +181,6 @@ __global__ void ext_desc_pligrid_starter( int*                featvec_counter,
                                          Descriptor*         descs,
                                          int*                feat_to_ext_map,
                                          cudaTextureObject_t layer_tex,
-                                         const int           level,
                                          bool                use_root_sift )
 {
 #if __CUDA_ARCH__ > 350
@@ -199,8 +190,7 @@ __global__ void ext_desc_pligrid_starter( int*                featvec_counter,
                              extrema,
                              descs,
                              feat_to_ext_map,
-                             layer_tex,
-                             level );
+                             layer_tex );
 
     dim3 block;
     dim3 grid;
@@ -250,62 +240,55 @@ void Pyramid::descriptors( const Config& conf )
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
 
-            for( int level=1; level<_levels-2; level++ ) {
-                cudaStream_t oct_str = oct_obj.getStream(level+2);
+            cudaStream_t oct_str = oct_obj.getStream();
 
-                if( conf.getDescMode() == Config::Loop ) {
+            if( conf.getDescMode() == Config::Loop ) {
                     ext_desc_loop_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getDescriptors( level ),
-                          oct_obj.getFeatToExtMapD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
                           oct_obj.getDataTexPoint( ),
                           oct_obj.getWidth( ),
                           oct_obj.getHeight( ),
-                          level,
                           conf.getUseRootSift() );
-                } else if( conf.getDescMode() == Config::Grid ) {
+            } else if( conf.getDescMode() == Config::Grid ) {
                     ext_desc_grid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getDescriptors( level ),
-                          oct_obj.getFeatToExtMapD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
                           oct_obj.getDataTexPoint( ),
-                          level,
                           conf.getUseRootSift() );
-                } else if( conf.getDescMode() == Config::IGrid ) {
+            } else if( conf.getDescMode() == Config::IGrid ) {
                     ext_desc_igrid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getDescriptors( level ),
-                          oct_obj.getFeatToExtMapD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
                           oct_obj.getDataTexLinear( ),
-                          level,
                           conf.getUseRootSift() );
-                } else if( conf.getDescMode() == Config::PLGrid ) {
+            } else if( conf.getDescMode() == Config::PLGrid ) {
                     ext_desc_plgrid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getDescriptors( level ),
-                          oct_obj.getFeatToExtMapD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
                           oct_obj.getDataTexPoint( ),
-                          level,
                           conf.getUseRootSift() );
-                } else if( conf.getDescMode() == Config::PLIGrid ) {
+            } else if( conf.getDescMode() == Config::PLIGrid ) {
                     ext_desc_pligrid_starter
                         <<<1,1,0,oct_str>>>
-                        ( oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getDescriptors( level ),
-                          oct_obj.getFeatToExtMapD( level ),
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
                           oct_obj.getDataTexLinear( ),
-                          level,
                           conf.getUseRootSift() );
-                }
             }
         }
         cudaDeviceSynchronize();
@@ -325,9 +308,7 @@ void Pyramid::descriptors( const Config& conf )
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
 
-            for( int level=3; level<_levels; level++ ) {
-                cudaStreamSynchronize( oct_obj.getStream(level) );
-            }
+            cudaStreamSynchronize( oct_obj.getStream() );
 
             // async copy of extrema from device to host
             oct_obj.readExtremaCount( );
@@ -336,45 +317,42 @@ void Pyramid::descriptors( const Config& conf )
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
 
+            dim3 block;
+            dim3 grid;
+            grid.x = oct_obj.getFeatVecCountH( );
+            grid.y = 1;
+            grid.z = 1;
 
-            for( int level=1; level<_levels-2; level++ ) {
-                dim3 block;
-                dim3 grid;
-                grid.x = oct_obj.getFeatVecCountH( level );
-                grid.y = 1;
-                grid.z = 1;
-
-                if( grid.x != 0 ) {
-                    if( conf.getDescMode() == Config::Loop ) {
-                        start_ext_desc_loop( oct_obj, level );
-                    } else if( conf.getDescMode() == Config::Grid ) {
-                        start_ext_desc_grid( oct_obj, level );
-                    } else if( conf.getDescMode() == Config::IGrid ) {
-                        start_ext_desc_igrid( oct_obj, level );
-                    } else if( conf.getDescMode() == Config::PLGrid ) {
-                        start_ext_desc_pl_grid( oct_obj, level );
-                    } else if( conf.getDescMode() == Config::PLIGrid ) {
-                        start_ext_desc_pl_igrid( oct_obj, level );
-                    } else {
+            if( grid.x != 0 ) {
+                if( conf.getDescMode() == Config::Loop ) {
+                        start_ext_desc_loop( oct_obj );
+                } else if( conf.getDescMode() == Config::Grid ) {
+                        start_ext_desc_grid( oct_obj );
+                } else if( conf.getDescMode() == Config::IGrid ) {
+                        start_ext_desc_igrid( oct_obj );
+                } else if( conf.getDescMode() == Config::PLGrid ) {
+                        start_ext_desc_pl_grid( oct_obj );
+                } else if( conf.getDescMode() == Config::PLIGrid ) {
+                        start_ext_desc_pl_igrid( oct_obj );
+                } else {
                         POP_FATAL( "not yet" );
-                    }
+                }
 
-                    grid.x  = grid_divide( oct_obj.getFeatVecCountH( level ), 32 );
-                    block.x = 32;
-                    block.y = 32;
-                    block.z = 1;
+                grid.x  = grid_divide( oct_obj.getFeatVecCountH( ), 32 );
+                block.x = 32;
+                block.y = 32;
+                block.z = 1;
 
-                    if( conf.getUseRootSift() ) {
+                if( conf.getUseRootSift() ) {
                         normalize_histogram_root_sift
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatVecCountH( level ) );
-                    } else {
+                            <<<grid,block,0,oct_obj.getStream( )>>>
+                            ( oct_obj.getDescriptors( ),
+                              oct_obj.getFeatVecCountH( ) );
+                } else {
                         normalize_histogram_l2
-                            <<<grid,block,0,oct_obj.getStream(level+2)>>>
-                            ( oct_obj.getDescriptors( level ),
-                              oct_obj.getFeatVecCountH( level ) );
-                    }
+                            <<<grid,block,0,oct_obj.getStream( )>>>
+                            ( oct_obj.getDescriptors( ),
+                              oct_obj.getFeatVecCountH( ) );
                 }
             }
         }

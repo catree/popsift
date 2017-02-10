@@ -64,30 +64,20 @@ namespace popsift {
         alloc_streams();
         alloc_events();
 
-        _d_desc = new Descriptor*[_levels];
-        _h_desc = new Descriptor*[_levels];
-
-        for (int l = 0; l<_levels; l++) {
-            int sz = h_consts.orientations;
-            if (sz == 0) {
-                _d_desc[l] = 0;
-                _h_desc[l] = 0;
-            }
-            else {
-                _d_desc[l] = popsift::cuda::malloc_devT<Descriptor>(sz, __FILE__, __LINE__);
-                _h_desc[l] = popsift::cuda::malloc_hstT<Descriptor>(sz, __FILE__, __LINE__);
-            }
+        int sz = h_consts.orientations;
+        if (sz == 0) {
+            _d_desc = 0;
+            _h_desc = 0;
+        } else {
+            _d_desc = popsift::cuda::malloc_devT<Descriptor>(sz, __FILE__, __LINE__);
+            _h_desc = popsift::cuda::malloc_hstT<Descriptor>(sz, __FILE__, __LINE__);
         }
     }
 
     void Octave::free()
     {
-        for (int i = 0; i<_levels; i++) {
-            if (_h_desc && _h_desc[i]) cudaFreeHost(_h_desc[i]);
-            if (_d_desc && _d_desc[i]) cudaFree(_d_desc[i]);
-        }
-        delete[] _d_desc;
-        delete[] _h_desc;
+        if( _h_desc ) cudaFreeHost( _h_desc );
+        if (_d_desc ) cudaFree( _d_desc );
 
         free_events();
         free_streams();
@@ -107,141 +97,115 @@ namespace popsift {
 
     void Octave::reset_extrema_mgmt()
     {
-        cudaStream_t stream = _streams[0];
-        cudaEvent_t  ev = _extrema_done[0];
+        cudaEvent_t  ev = _extrema_done;
 
-        memset(_h_extrema_counter, 0, _levels * sizeof(int));
-        popcuda_memset_async(_d_extrema_counter, 0, _levels * sizeof(int), stream);
-        popcuda_memset_async(_d_extrema_num_blocks, 0, _levels * sizeof(int), stream);
-        popcuda_memset_async(_d_featvec_counter, 0, _levels * sizeof(int), stream);
-#if 0
-        popcuda_memset_async(_d_orientation_num_blocks, 0, _levels * sizeof(int), stream);
-#endif
+        memset(_h_extrema_counter, 0, 1 * sizeof(int));
+        popcuda_memset_async(_d_extrema_counter, 0, 1 * sizeof(int), _stream);
+        popcuda_memset_async(_d_extrema_num_blocks, 0, 1 * sizeof(int), _stream);
+        popcuda_memset_async(_d_featvec_counter, 0, 1 * sizeof(int), _stream);
 
-        cudaEventRecord(ev, stream);
+        cudaEventRecord(ev, _stream);
     }
 
     void Octave::readExtremaCount()
     {
-        assert(_h_extrema_counter);
-        assert(_d_extrema_counter);
-        assert(_h_featvec_counter);
-        assert(_d_featvec_counter);
-        popcuda_memcpy_async(_h_extrema_counter,
-            _d_extrema_counter,
-            _levels * sizeof(int),
-            cudaMemcpyDeviceToHost,
-            _streams[0]);
-        popcuda_memcpy_async(_h_featvec_counter,
-            _d_featvec_counter,
-            _levels * sizeof(int),
-            cudaMemcpyDeviceToHost,
-            _streams[0]);
+        popcuda_memcpy_async( _h_extrema_counter,
+                              _d_extrema_counter,
+                              1 * sizeof(int),
+                              cudaMemcpyDeviceToHost,
+                              _stream );
+        popcuda_memcpy_async( _h_featvec_counter,
+                              _d_featvec_counter,
+                              1 * sizeof(int),
+                              cudaMemcpyDeviceToHost,
+                              _stream );
     }
 
     int Octave::getExtremaCount() const
     {
-        int ct = 0;
-        for (uint32_t i = 1; i<_levels - 1; i++) {
-            ct += _h_extrema_counter[i];
-        }
-        return ct;
+        return *_h_extrema_counter;
     }
 
     int Octave::getDescriptorCount() const
     {
-        int ct = 0;
-        for (uint32_t i = 1; i<_levels - 1; i++) {
-            ct += _h_featvec_counter[i];
-        }
-        return ct;
+        return *_h_featvec_counter;
     }
 
     void Octave::downloadDescriptor(const Config& conf)
     {
-        for (uint32_t l = 0; l<_levels; l++) {
-            int sz = _h_extrema_counter[l];
-            if (sz != 0) {
-                if (_h_extrema[l] == 0) continue;
-
-                popcuda_memcpy_async(_h_extrema[l],
-                    _d_extrema[l],
-                    sz * sizeof(Extremum),
-                    cudaMemcpyDeviceToHost,
-                    0);
-            }
-            sz = _h_featvec_counter[l];
-            if (sz != 0) {
-                popcuda_memcpy_async(_h_desc[l],
-                    _d_desc[l],
-                    sz * sizeof(Descriptor),
-                    cudaMemcpyDeviceToHost,
-                    0);
-            }
-        }
+        int sz = *_h_extrema_counter;
+        if( sz == 0 ) return;
+        popcuda_memcpy_async( _h_extrema,
+                              _d_extrema,
+                              sz * sizeof(Extremum),
+                              cudaMemcpyDeviceToHost,
+                              0 );
+        sz = *_h_featvec_counter;
+        popcuda_memcpy_async( _h_desc,
+                              _d_desc,
+                              sz * sizeof(Descriptor),
+                              cudaMemcpyDeviceToHost,
+                              0 );
 
         cudaDeviceSynchronize();
     }
 
     void Octave::writeDescriptor(const Config& conf, ostream& ostr, bool really)
     {
-        for (uint32_t l = 0; l<_levels; l++) {
-            if (_h_extrema[l] == 0) continue;
+        if( _h_extrema == 0 ) return;
 
-            Extremum* cand = _h_extrema[l];
+        Extremum*   cand = _h_extrema;
+        Descriptor* desc = _h_desc;
 
-            Descriptor* desc = _h_desc[l];
+        int sz = *_h_extrema_counter;
 
-            int sz = _h_extrema_counter[l];
-            for (int s = 0; s<sz; s++) {
-                for (int ori = 0; ori<cand[s].num_ori; ori++) {
-                    const float up_fac = conf.getUpscaleFactor();
+        for (int s = 0; s<sz; s++) {
+            for (int ori = 0; ori<cand[s].num_ori; ori++) {
+                const float up_fac = conf.getUpscaleFactor();
 
-                    float xpos = cand[s].xpos * pow(2.0, _debug_octave_id - up_fac);
-                    float ypos = cand[s].ypos * pow(2.0, _debug_octave_id - up_fac);
-                    float sigma = cand[s].sigma * pow(2.0, _debug_octave_id - up_fac);
-                    float dom_or = cand[s].orientation[ori];
-                    dom_or = dom_or / M_PI2 * 360;
-                    if (dom_or < 0) dom_or += 360;
+                float xpos = cand[s].xpos * pow(2.0, _debug_octave_id - up_fac);
+                float ypos = cand[s].ypos * pow(2.0, _debug_octave_id - up_fac);
+                float sigma = cand[s].sigma * pow(2.0, _debug_octave_id - up_fac);
+                float dom_or = cand[s].orientation[ori];
+                dom_or = dom_or / M_PI2 * 360;
+                if (dom_or < 0) dom_or += 360;
 
 #ifdef PRINT_WITH_ORIENTATION
-                    ostr << setprecision(5)
+                ostr << setprecision(5)
                         << xpos << " "
                         << ypos << " "
                         << sigma << " "
                         << dom_or << " ";
 #else
-                    ostr << setprecision(5)
+                ostr << setprecision(5)
                         << xpos << " " << ypos << " "
                         << 1.0f / (sigma * sigma)
                         << " 0 "
                         << 1.0f / (sigma * sigma) << " ";
 #endif
-                    if (really) {
+                if (really) {
                         int feat_vec_index = cand[s].idx_ori + ori;
                         for (int i = 0; i<128; i++) {
                             ostr << desc[feat_vec_index].features[i] << " ";
                         }
-                    }
-                    ostr << endl;
                 }
+                ostr << endl;
             }
         }
     }
 
     void Octave::copyExtrema(const Config& conf, Feature* feature, Descriptor* descBuffer)
     {
-        int num_extrema = getExtremaCount();
+        int num_extrema     = getExtremaCount();
         int num_descriptors = getDescriptorCount();
 
-        for (uint32_t l = 0; l<_levels; l++) {
-            Extremum*   ext = _h_extrema[l];
-            Descriptor* desc = _h_desc[l];
-            int         ext_sz = _h_extrema_counter[l];
-            int         desc_sz = _h_featvec_counter[l];
+        Extremum*   ext     = _h_extrema;
+        Descriptor* desc    = _h_desc;
+        int         ext_sz  = *_h_extrema_counter;
+        int         desc_sz = *_h_featvec_counter;
 
-            memcpy(descBuffer, desc, desc_sz * sizeof(Descriptor));
-            for (int i = 0; i<ext_sz; i++) {
+        memcpy(descBuffer, desc, desc_sz * sizeof(Descriptor));
+        for (int i = 0; i<ext_sz; i++) {
                 const float up_fac = conf.getUpscaleFactor();
 
                 float xpos = ext[i].xpos * pow(2.0, _debug_octave_id - up_fac);
@@ -265,31 +229,24 @@ namespace popsift {
                     feature[i].orientation[ori] = 0;
                     feature[i].desc[ori] = 0;
                 }
-            }
-
-            feature += ext_sz;
-            descBuffer += desc_sz;
         }
 
+        feature += ext_sz;
+        descBuffer += desc_sz;
     }
 
-    Descriptor* Octave::getDescriptors(uint32_t level)
+    Descriptor* Octave::getDescriptors( )
     {
-        return _d_desc[level];
+        return _d_desc;
     }
 
     /*************************************************************
     * Debug output: write an octave/level to disk as PGM
     *************************************************************/
 
-    void Octave::download_and_save_array(const char* basename, uint32_t octave, uint32_t level)
+    void Octave::download_and_save_array( const char* basename, int octave )
     {
         // cerr << "Calling " << __FUNCTION__ << " for octave " << octave << endl;
-
-        if (level >= _levels) {
-            // cerr << "Level " << level << " does not exist in Octave " << octave << endl;
-            return;
-        }
 
         struct stat st = { 0 };
 
@@ -356,7 +313,6 @@ namespace popsift {
         }
 #endif
 
-        if( level == 0 ) {
             cudaError_t err;
             int width  = getWidth();
             int height = getHeight();
@@ -430,7 +386,6 @@ namespace popsift {
             }
 
             POP_CUDA_FREE_HOST(array);
-        }
     }
 
     void Octave::alloc_data_planes()
@@ -630,111 +585,62 @@ namespace popsift {
 
     void Octave::alloc_extrema_mgmt()
     {
-        _h_extrema_counter = popsift::cuda::malloc_hstT<int>(_levels, __FILE__, __LINE__);
-        _d_extrema_counter = popsift::cuda::malloc_devT<int>(_levels, __FILE__, __LINE__);
-        _d_extrema_num_blocks = popsift::cuda::malloc_devT<int>(_levels, __FILE__, __LINE__);
-        _h_featvec_counter = popsift::cuda::malloc_hstT<int>(_levels, __FILE__, __LINE__);
-        _d_featvec_counter = popsift::cuda::malloc_devT<int>(_levels, __FILE__, __LINE__);
+        _h_extrema_counter = popsift::cuda::malloc_hstT<int>(1, __FILE__, __LINE__);
+        _d_extrema_counter = popsift::cuda::malloc_devT<int>(1, __FILE__, __LINE__);
+        _d_extrema_num_blocks = popsift::cuda::malloc_devT<int>(1, __FILE__, __LINE__);
+        _h_featvec_counter = popsift::cuda::malloc_hstT<int>(1, __FILE__, __LINE__);
+        _d_featvec_counter = popsift::cuda::malloc_devT<int>(1, __FILE__, __LINE__);
     }
 
     void Octave::free_extrema_mgmt()
     {
-        cudaFree(_d_extrema_num_blocks);
-        cudaFree(_d_extrema_counter);
-        cudaFreeHost(_h_extrema_counter);
-        cudaFree(_d_featvec_counter);
-        cudaFreeHost(_h_featvec_counter);
+        cudaFree(     _d_extrema_num_blocks );
+        cudaFree(     _d_extrema_counter );
+        cudaFreeHost( _h_extrema_counter );
+        cudaFree(     _d_featvec_counter );
+        cudaFreeHost( _h_featvec_counter );
     }
 
     void Octave::alloc_extrema()
     {
-        _d_extrema = new Extremum*[_levels];
-        _h_extrema = new Extremum*[_levels];
-
-        _h_extrema[0] = 0;
-        _h_extrema[_levels - 1] = 0;
-        _d_extrema[0] = 0;
-        _d_extrema[_levels - 1] = 0;
-
-        _d_feat_to_ext_map = new int*[_levels];
-        _h_feat_to_ext_map = new int*[_levels];
-
-        _h_feat_to_ext_map[0] = 0;
-        _h_feat_to_ext_map[_levels - 1] = 0;
-        _d_feat_to_ext_map[0] = 0;
-        _d_feat_to_ext_map[_levels - 1] = 0;
-
-        int levels = _levels - 2;
-
-        Extremum* d = popsift::cuda::malloc_devT<Extremum>(levels * h_consts.extrema, __FILE__, __LINE__);
-        Extremum* h = popsift::cuda::malloc_hstT<Extremum>(levels * h_consts.extrema, __FILE__, __LINE__);
-
-        for (uint32_t i = 1; i<_levels - 1; i++) {
-            const int offset = i - 1;
-            _d_extrema[i] = &d[offset * h_consts.extrema];
-            _h_extrema[i] = &h[offset * h_consts.extrema];
-        }
-
-        int* mapd = popsift::cuda::malloc_devT<int>(levels * h_consts.orientations, __FILE__, __LINE__);
-        int* maph = popsift::cuda::malloc_hstT<int>(levels * h_consts.orientations, __FILE__, __LINE__);
-
-        for (uint32_t i = 1; i<_levels - 1; i++) {
-            const int offset = i - 1;
-            _d_feat_to_ext_map[i] = &mapd[offset * h_consts.orientations];
-            _h_feat_to_ext_map[i] = &maph[offset * h_consts.orientations];
-        }
+        _d_extrema = popsift::cuda::malloc_devT<Extremum>( h_consts.extrema,
+                                                           __FILE__, __LINE__);
+        _h_extrema = popsift::cuda::malloc_hstT<Extremum>( h_consts.extrema,
+                                                           __FILE__, __LINE__);
+        _d_feat_to_ext_map = popsift::cuda::malloc_devT<int>( h_consts.orientations,
+                                                              __FILE__, __LINE__);
+        _h_feat_to_ext_map = popsift::cuda::malloc_hstT<int>( h_consts.orientations,
+                                                              __FILE__, __LINE__);
     }
 
     void Octave::free_extrema()
     {
-        cudaFreeHost(_h_feat_to_ext_map[1]);
-        cudaFree(_d_feat_to_ext_map[1]);
-        cudaFreeHost(_h_extrema[1]);
-        cudaFree(_d_extrema[1]);
-        delete[] _d_extrema;
-        delete[] _h_extrema;
+        cudaFreeHost( _h_feat_to_ext_map );
+        cudaFree(     _d_feat_to_ext_map );
+        cudaFreeHost( _h_extrema );
+        cudaFree(     _d_extrema );
     }
 
     void Octave::alloc_streams()
     {
-        _streams = new cudaStream_t[_levels];
-
-        for (int i = 0; i<_levels; i++) {
-            _streams[i] = popsift::cuda::stream_create(__FILE__, __LINE__);
-        }
+        _stream = popsift::cuda::stream_create(__FILE__, __LINE__);
     }
 
     void Octave::free_streams()
     {
-        for (int i = 0; i<_levels; i++) {
-            popsift::cuda::stream_destroy(_streams[i], __FILE__, __LINE__);
-        }
-        delete[] _streams;
+        popsift::cuda::stream_destroy( _stream, __FILE__, __LINE__ );
     }
 
     void Octave::alloc_events()
     {
-        _gauss_done = new cudaEvent_t[_levels];
-        _dog_done = new cudaEvent_t[_levels];
-        _extrema_done = new cudaEvent_t[_levels];
-        for (int i = 0; i<_levels; i++) {
-            _gauss_done[i] = popsift::cuda::event_create(__FILE__, __LINE__);
-            _dog_done[i] = popsift::cuda::event_create(__FILE__, __LINE__);
-            _extrema_done[i] = popsift::cuda::event_create(__FILE__, __LINE__);
-        }
+        _dog_done     = popsift::cuda::event_create(__FILE__, __LINE__);
+        _extrema_done = popsift::cuda::event_create(__FILE__, __LINE__);
     }
 
     void Octave::free_events()
     {
-        for (int i = 0; i<_levels; i++) {
-            popsift::cuda::event_destroy(_gauss_done[i], __FILE__, __LINE__);
-            popsift::cuda::event_destroy(_dog_done[i], __FILE__, __LINE__);
-            popsift::cuda::event_destroy(_extrema_done[i], __FILE__, __LINE__);
-        }
-
-        delete[] _gauss_done;
-        delete[] _dog_done;
-        delete[] _extrema_done;
+        popsift::cuda::event_destroy( _dog_done,     __FILE__, __LINE__);
+        popsift::cuda::event_destroy( _extrema_done, __FILE__, __LINE__);
     }
 
 } // namespace popsift

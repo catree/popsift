@@ -169,9 +169,7 @@ popsift::Features* PopSift::execute( int                  pipe,
         int levels  = _pipe[pipe]._pyramid->getNumLevels();
 
         for( int o=0; o<octaves; o++ ) {
-            for( int s=0; s<levels+3; s++ ) {
-                _pipe[pipe]._pyramid->download_and_save_array( "pyramid", o, s );
-            }
+            _pipe[pipe]._pyramid->download_and_save_array( "pyramid", o );
         }
         for( int o=0; o<octaves; o++ ) {
             _pipe[pipe]._pyramid->save_descriptors( _config, "pyramid", o );

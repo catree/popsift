@@ -38,7 +38,7 @@ public:
     Features* find_extrema( const Config& conf,
                             Image*        base );
 
-    void download_and_save_array( const char* basename, uint32_t octave, uint32_t level );
+    void download_and_save_array( const char* basename, int octave );
 
     void download_descriptors( const Config& conf, uint32_t octave );
     void save_descriptors( const Config& conf, const char* basename, uint32_t octave );
@@ -55,7 +55,7 @@ private:
     inline void downscale_from_prev_octave( int octave, cudaStream_t stream, Config::SiftMode mode );
     inline void horiz_from_prev_level( int octave, int level, cudaStream_t stream );
     inline void vert_from_interm( int octave, int level, cudaStream_t stream );
-    inline void dog_from_blurred( int octave, int level, cudaStream_t stream );
+    inline void dogs_from_blurred( int octave, int max_level, cudaStream_t stream );
 
     void make_octave( const Config& conf, Image* base, Octave& oct_obj, cudaStream_t stream, bool isOctaveZero );
 

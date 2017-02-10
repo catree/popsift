@@ -21,11 +21,11 @@ void ext_desc_pl_load_igrid( float2              gradcache[40][40],
                              const float         ang,
                              const float         sig,
                              const Extremum*     ext,
-                             cudaTextureObject_t layer_tex,
-                             const int           level )
+                             cudaTextureObject_t layer_tex )
 {
-    const float x    = ext->xpos;
-    const float y    = ext->ypos;
+    const float x     = ext->xpos;
+    const float y     = ext->ypos;
+    const int   level = ext->old_level;
 
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 
@@ -172,8 +172,7 @@ __global__
 void ext_desc_pl_igrid( Extremum*           extrema,
                         Descriptor*         descs,
                         int*                feat_to_ext_map,
-                        cudaTextureObject_t layer_tex,
-                        const int           level )
+                        cudaTextureObject_t layer_tex )
 {
     const int   ix       = threadIdx.y;
     const int   iy       = threadIdx.z;
@@ -195,8 +194,7 @@ void ext_desc_pl_igrid( Extremum*           extrema,
                             ang,
                             sig,
                             ext,
-                            layer_tex,
-                            level );
+                            layer_tex );
 
     ext_desc_pl_igrid_sub( ix,
                           iy,

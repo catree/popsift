@@ -55,10 +55,10 @@ __global__
     printf("\n");
 }
 
-void Pyramid::download_and_save_array(const char* basename, uint32_t octave, uint32_t level)
+void Pyramid::download_and_save_array(const char* basename, int octave )
 {
     if (octave < _num_octaves) {
-        _octaves[octave].download_and_save_array(basename, octave, level);
+        _octaves[octave].download_and_save_array( basename, octave );
     }
     else {
         cerr << "Octave " << octave << " does not exist" << endl;

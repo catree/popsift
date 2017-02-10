@@ -43,10 +43,9 @@ class Octave
 
         // one CUDA stream per level
         // consider whether some of them can be removed
-        cudaStream_t* _streams;
-        cudaEvent_t*  _gauss_done;
-        cudaEvent_t*  _dog_done;
-        cudaEvent_t*  _extrema_done;
+        cudaStream_t _stream;
+        cudaEvent_t  _dog_done;
+        cudaEvent_t  _extrema_done;
 
 
         /* It seems strange strange to collect extrema globally only
@@ -70,17 +69,17 @@ class Octave
         int*         _d_featvec_counter;
 
         /* Data structure for the Extrema, host and device side */
-        Extremum**   _h_extrema;
-        Extremum**   _d_extrema;
+        Extremum*   _h_extrema;
+        Extremum*   _d_extrema;
 
         /* Data structure for the Descriptors */
-        Descriptor** _d_desc;
-        Descriptor** _h_desc;
+        Descriptor* _d_desc;
+        Descriptor* _h_desc;
 
         /* Array of arrays mapping a descriptor index back to an extremum index
          * ie: _d_extrema[_d_feat_to_ext_map[i]] is the pos of _d_desc[i] */
-        int**        _h_feat_to_ext_map;
-        int**        _d_feat_to_ext_map;
+        int*        _h_feat_to_ext_map;
+        int*        _d_feat_to_ext_map;
 
     public:
         Octave( );
@@ -96,17 +95,14 @@ class Octave
             return _h;
         }
 
-        inline cudaStream_t getStream( int level ) {
-            return _streams[level];
+        inline cudaStream_t getStream( ) {
+            return _stream;
         }
-        inline cudaEvent_t getEventGaussDone( int level ) {
-            return _gauss_done[level];
+        inline cudaEvent_t getEventDogDone( ) {
+            return _dog_done;
         }
-        inline cudaEvent_t getEventDogDone( int level ) {
-            return _dog_done[level];
-        }
-        inline cudaEvent_t getEventExtremaDone( int level ) {
-            return _extrema_done[level];
+        inline cudaEvent_t getEventExtremaDone( ) {
+            return _extrema_done;
         }
 
         inline cudaTextureObject_t getIntermDataTexPoint( ) {
@@ -136,28 +132,31 @@ class Octave
         // inline uint32_t getByteSizeData() const { return _data[0].getByteSize(); }
         // inline uint32_t getByteSizePitch() const { return _data[0].getPitch(); }
 
-        inline int*  getExtremaCtPtrH( int level ) { return &_h_extrema_counter[level]; }
-        inline int*  getExtremaCtPtrD( int level ) { return &_d_extrema_counter[level]; }
-        inline int   getExtremaCountH( int level ) { return  _h_extrema_counter[level]; }
+        // inline int*  getExtremaCtPtrH( int level ) { return &_h_extrema_counter[level]; }
+        // inline int*  getExtremaCtPtrD( int level ) { return &_d_extrema_counter[level]; }
+        // inline int   getExtremaCountH( int level ) { return  _h_extrema_counter[level]; }
+        inline int*  getExtremaCtPtrH( ) { return  _h_extrema_counter; }
+        inline int*  getExtremaCtPtrD( ) { return  _d_extrema_counter; }
+        inline int   getExtremaCountH( ) { return *_h_extrema_counter; }
 
-        inline int*  getFeatVecCtPtrH( int level ) { return &_h_featvec_counter[level]; }
-        inline int*  getFeatVecCtPtrD( int level ) { return &_d_featvec_counter[level]; }
-        inline int   getFeatVecCountH( int level ) { return  _h_featvec_counter[level]; }
+        inline int*  getFeatVecCtPtrH( ) { return  _h_featvec_counter; }
+        inline int*  getFeatVecCtPtrD( ) { return  _d_featvec_counter; }
+        inline int   getFeatVecCountH( ) { return *_h_featvec_counter; }
 
         inline int* getNumberOfBlocks( ) {
             return _d_extrema_num_blocks;
         }
 
-        inline Extremum* getExtrema( int level )       { return _d_extrema[level]; }
-        inline Extremum* getExtremaH( int level )      { return _h_extrema[level]; }
-        inline int*      getFeatToExtMapH( int level ) { return _h_feat_to_ext_map[level]; }
-        inline int*      getFeatToExtMapD( int level ) { return _d_feat_to_ext_map[level]; }
+        inline Extremum* getExtrema( )       { return _d_extrema; }
+        inline Extremum* getExtremaH( )      { return _h_extrema; }
+        inline int*      getFeatToExtMapH( ) { return _h_feat_to_ext_map; }
+        inline int*      getFeatToExtMapD( ) { return _d_feat_to_ext_map; }
 
         void readExtremaCount( );
         int getExtremaCount( ) const;
         int getDescriptorCount( ) const;
 
-        Descriptor* getDescriptors( uint32_t level );
+        Descriptor* getDescriptors( );
         void        downloadDescriptor( const Config& conf );
         void        writeDescriptor( const Config& conf, std::ostream& ostr, bool really );
         void        copyExtrema( const Config& conf, Feature* feature, Descriptor* descBuffer );
@@ -180,7 +179,7 @@ class Octave
          * debug:
          * download a level and write to disk
          */
-         void download_and_save_array( const char* basename, uint32_t octave, uint32_t level );
+         void download_and_save_array( const char* basename, int octave );
 
 private:
     void alloc_data_planes( );

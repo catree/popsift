@@ -19,17 +19,16 @@ __global__
 void ext_desc_pl_grid( popsift::Extremum*     extrema,
                        popsift::Descriptor*   descs,
                        int*                   feat_to_ext_map,
-                       cudaTextureObject_t    layer_tex,
-                       const int              level );
+                       cudaTextureObject_t    layer_tex );
 
 namespace popsift
 {
 
-inline static bool start_ext_desc_pl_grid( Octave& oct_obj, const int level )
+inline static bool start_ext_desc_pl_grid( Octave& oct_obj )
 {
     dim3 block;
     dim3 grid;
-    grid.x = oct_obj.getFeatVecCountH( level );
+    grid.x = oct_obj.getFeatVecCountH( );
     grid.y = 1;
     grid.z = 1;
 
@@ -40,12 +39,11 @@ inline static bool start_ext_desc_pl_grid( Octave& oct_obj, const int level )
     block.z = 4;
 
     ext_desc_pl_grid
-        <<<grid,block,0,oct_obj.getStream(level+2)>>>
-        ( oct_obj.getExtrema( level ),
-          oct_obj.getDescriptors( level ),
-          oct_obj.getFeatToExtMapD( level ),
-          oct_obj.getDataTexPoint( ),
-          level );
+        <<<grid,block,0,oct_obj.getStream()>>>
+        ( oct_obj.getExtrema( ),
+          oct_obj.getDescriptors( ),
+          oct_obj.getFeatToExtMapD( ),
+          oct_obj.getDataTexPoint( ) );
 
     return true;
 }
@@ -55,8 +53,7 @@ void start_ext_desc_pl_grid( int*                featvec_counter,
                              Extremum*           extrema,
                              Descriptor*         descs,
                              int*                feat_to_ext_map,
-                             cudaTextureObject_t layer_tex,
-                             const int           level )
+                             cudaTextureObject_t layer_tex )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;
@@ -74,8 +71,7 @@ void start_ext_desc_pl_grid( int*                featvec_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          layer_tex,
-          level );
+          layer_tex );
 #endif
 }
 

@@ -20,17 +20,16 @@ __global__
 void ext_desc_igrid( popsift::Extremum*     extrema,
                      popsift::Descriptor*   descs,
                      int*                   feat_to_ext_map,
-                     cudaTextureObject_t    texLinear,
-                     int                    level );
+                     cudaTextureObject_t    texLinear );
 
 namespace popsift
 {
 
-inline static bool start_ext_desc_igrid( Octave& oct_obj, int level )
+inline static bool start_ext_desc_igrid( Octave& oct_obj )
 {
     dim3 block;
     dim3 grid;
-    grid.x = oct_obj.getFeatVecCountH( level );
+    grid.x = oct_obj.getFeatVecCountH( );
     grid.y = 1;
     grid.z = 1;
 
@@ -47,12 +46,11 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj, int level )
 #endif
 
     ext_desc_igrid
-        <<<grid,block,0,oct_obj.getStream(level+2)>>>
-        ( oct_obj.getExtrema( level ),
-          oct_obj.getDescriptors( level ),
-          oct_obj.getFeatToExtMapD( level ),
-          oct_obj.getDataTexLinear( ),
-          level );
+        <<<grid,block,0,oct_obj.getStream()>>>
+        ( oct_obj.getExtrema( ),
+          oct_obj.getDescriptors( ),
+          oct_obj.getFeatToExtMapD( ),
+          oct_obj.getDataTexLinear( ) );
 
     return true;
 }
@@ -62,8 +60,7 @@ void start_ext_desc_igrid( int*                featvec_counter,
                            Extremum*           extrema,
                            Descriptor*         descs,
                            int*                feat_to_ext_map,
-                           cudaTextureObject_t texLinear,
-                           int                 level )
+                           cudaTextureObject_t texLinear )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;
@@ -87,8 +84,7 @@ void start_ext_desc_igrid( int*                featvec_counter,
         ( extrema,
           descs,
           feat_to_ext_map,
-          texLinear,
-          level );
+          texLinear );
 #endif
 }
 

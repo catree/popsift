@@ -27,8 +27,7 @@ void ext_desc_loop_sub( const float         ang,
                         float* __restrict__ features,
                         cudaTextureObject_t layer_tex,
                         const int           width,
-                        const int           height,
-                        const int           level )
+                        const int           height )
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
@@ -36,6 +35,7 @@ void ext_desc_loop_sub( const float         ang,
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
+    const int   level = ext->old_level;
     const float sig  = ext->sigma;
     const float SBP  = fabsf(DESC_MAGNIFY * sig);
 
@@ -171,8 +171,7 @@ void ext_desc_loop( Extremum*           extrema,
                     int*                feat_to_ext_map,
                     cudaTextureObject_t layer_tex,
                     const int           w,
-                    const int           h,
-                    const int           level )
+                    const int           h )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];
@@ -187,7 +186,6 @@ void ext_desc_loop( Extremum*           extrema,
                        desc->features,
                        layer_tex,
                        w,
-                       h,
-                       level );
+                       h );
 }
 

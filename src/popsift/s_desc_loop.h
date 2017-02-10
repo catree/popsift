@@ -19,17 +19,16 @@ void ext_desc_loop( popsift::Extremum*     extrema,
                     int*                   feat_to_ext_map,
                     cudaTextureObject_t    layer_tex,
                     const int              width,
-                    const int              height,
-                    const int              level );
+                    const int              height );
 
 namespace popsift
 {
 
-inline static bool start_ext_desc_loop( Octave& oct_obj, const int level )
+inline static bool start_ext_desc_loop( Octave& oct_obj )
 {
     dim3 block;
     dim3 grid;
-    grid.x = oct_obj.getFeatVecCountH( level );
+    grid.x = oct_obj.getFeatVecCountH( );
     grid.y = 1;
     grid.z = 1;
 
@@ -40,14 +39,13 @@ inline static bool start_ext_desc_loop( Octave& oct_obj, const int level )
     block.z = 4;
 
     ext_desc_loop
-        <<<grid,block,0,oct_obj.getStream(level+2)>>>
-        ( oct_obj.getExtrema( level ),
-          oct_obj.getDescriptors( level ),
-          oct_obj.getFeatToExtMapD( level ),
+        <<<grid,block,0,oct_obj.getStream()>>>
+        ( oct_obj.getExtrema( ),
+          oct_obj.getDescriptors( ),
+          oct_obj.getFeatToExtMapD( ),
           oct_obj.getDataTexPoint( ),
           oct_obj.getWidth(),
-          oct_obj.getHeight(),
-          level );
+          oct_obj.getHeight() );
 
     return true;
 }
@@ -59,8 +57,7 @@ void start_ext_desc_loop( int*                featvec_counter,
                           int*                feat_to_ext_map,
                           cudaTextureObject_t layer_tex,
                           const int           width,
-                          const int           height,
-                          const int           level )
+                          const int           height )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;
@@ -80,8 +77,7 @@ void start_ext_desc_loop( int*                featvec_counter,
           feat_to_ext_map,
           layer_tex,
           width,
-          height,
-          level );
+          height );
 #endif
 }
 

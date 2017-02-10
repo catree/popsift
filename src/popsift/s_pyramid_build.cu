@@ -221,17 +221,14 @@ __global__
 void make_dog( cudaTextureObject_t src_data,
                cudaSurfaceObject_t dog_data,
                const int           w,
-               const int           h,
-               const int           level )
+               const int           h )
 {
-    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int idy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int idx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const int idy   = blockIdx.y * blockDim.y + threadIdx.y;
+    const int level = blockIdx.z;
 
-    const int r_x = clamp( idx, w );
-    const int r_y = clamp( idy, h );
-
-    const float b = tex2DLayered<float>( src_data, r_x + 0.5f, r_y + 0.5f, level+1 );
-    const float a = tex2DLayered<float>( src_data, r_x + 0.5f, r_y + 0.5f, level );
+    const float b = tex2DLayered<float>( src_data, idx + 0.5f, idy + 0.5f, level+1 );
+    const float a = tex2DLayered<float>( src_data, idx + 0.5f, idy + 0.5f, level );
     const float c = b - a;
 
     surf2DLayeredwrite( c, dog_data, idx*4, idy, level, cudaBoundaryModeZero );
@@ -277,7 +274,7 @@ inline void Pyramid::downscale_from_prev_octave( int octave, cudaStream_t stream
     const int height = oct_obj.getHeight();
 
     /* Necessary to wait for a lower level in the previous octave */
-    cudaEvent_t ev = prev_oct_obj.getEventGaussDone( _levels-PREV_LEVEL );
+    cudaEvent_t ev = prev_oct_obj.getEventDogDone();
     cudaStreamWaitEvent( stream, ev, 0 );
 
     dim3 h_block( 64, 2 );
@@ -321,7 +318,7 @@ inline void Pyramid::horiz_from_prev_level( int octave, int level, cudaStream_t 
     const int height = oct_obj.getHeight();
 
     /* waiting for previous level in same octave */
-    cudaEvent_t ev = oct_obj.getEventGaussDone( level-1 );
+    cudaEvent_t ev = oct_obj.getEventDogDone( );
     cudaStreamWaitEvent( stream, ev, 0 );
 
     dim3 block( 128, 1 );
@@ -364,7 +361,7 @@ inline void Pyramid::vert_from_interm( int octave, int level, cudaStream_t strea
 }
 
 __host__
-inline void Pyramid::dog_from_blurred( int octave, int level, cudaStream_t stream )
+inline void Pyramid::dogs_from_blurred( int octave, int max_level, cudaStream_t stream )
 {
     Octave&      oct_obj = _octaves[octave];
 
@@ -375,20 +372,14 @@ inline void Pyramid::dog_from_blurred( int octave, int level, cudaStream_t strea
     dim3 grid;
     grid.x = grid_divide( width,  block.x );
     grid.y = grid_divide( height, block.y );
-
-    /* waiting for lower level is automatic, it's in the same stream.
-     * waiting for upper level is necessary, it's in another stream.
-     */
-    cudaEvent_t  ev     = oct_obj.getEventGaussDone( level-1 );
-    cudaStreamWaitEvent( stream, ev, 0 );
+    grid.z = max_level - 1;
 
     gauss::make_dog
         <<<grid,block,0,stream>>>
         ( oct_obj.getDataTexPoint( ),
           oct_obj.getDogSurface( ),
           oct_obj.getWidth(),
-          oct_obj.getHeight(),
-          level-1 );
+          oct_obj.getHeight() );
 }
 
 /*************************************************************
@@ -412,82 +403,61 @@ void Pyramid::build_pyramid( const Config& conf, Image* base )
     cudaDeviceSynchronize();
 
     for( uint32_t octave=0; octave<_num_octaves; octave++ ) {
-      Octave& oct_obj   = _octaves[octave];
+        Octave&      oct_obj = _octaves[octave];
+        cudaStream_t stream  = oct_obj.getStream();
 
-      if( conf.getGaussMode() == Config::Fixed9 || conf.getGaussMode() == Config::Fixed15 ) {
-        cudaStream_t stream = oct_obj.getStream(0);
-        if( octave == 0 ) {
-            make_octave( conf, base, oct_obj, stream, true );
-        } else {
-            if( conf.getScalingMode() == Config::ScaleDirect ) {
-                horiz_from_input_image( conf, base, octave, stream,
-                                        conf.getSiftMode() );
-                vert_from_interm( octave, 0, stream );
-            } else { // Config::ScaleDefault
-                downscale_from_prev_octave( octave, stream,
+        if( conf.getGaussMode() == Config::Fixed9 || conf.getGaussMode() == Config::Fixed15 ) {
+            if( octave == 0 ) {
+                make_octave( conf, base, oct_obj, stream, true );
+            } else {
+                if( conf.getScalingMode() == Config::ScaleDirect ) {
+                    horiz_from_input_image( conf, base, octave, stream,
                                             conf.getSiftMode() );
-            }
-            make_octave( conf, base, oct_obj, stream, false );
-        }
-
-        for( uint32_t level=0; level<_levels; level++ ) {
-            cudaEvent_t  ev = oct_obj.getEventGaussDone(level);
-            err = cudaEventRecord( ev, stream );
-            POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
-        }
-
-        for( uint32_t level=1; level<_levels; level++ ) {
-            cudaEvent_t  dog_ev = oct_obj.getEventDogDone(level);
-            err = cudaEventRecord( dog_ev, stream );
-            POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
-        }
-      } else {
-
-        for( uint32_t level=0; level<_levels; level++ ) {
-            const int width  = oct_obj.getWidth();
-            const int height = oct_obj.getHeight();
-
-            cudaStream_t stream = oct_obj.getStream(level);
-            cudaEvent_t  ev     = oct_obj.getEventGaussDone(level);
-            cudaEvent_t  dog_ev = oct_obj.getEventDogDone(level);
-
-            if( level == 0 )
-            {
-                if( octave == 0 )
-                {
-                    horiz_from_input_image( conf, base, 0, stream, conf.getSiftMode() );
                     vert_from_interm( octave, 0, stream );
+                } else { // Config::ScaleDefault
+                    downscale_from_prev_octave( octave, stream,
+                                                conf.getSiftMode() );
+                }
+                make_octave( conf, base, oct_obj, stream, false );
+            }
+      } else {
+            for( int level=0; level<_levels; level++ ) {
+                const int width  = oct_obj.getWidth();
+                const int height = oct_obj.getHeight();
+
+                if( level == 0 )
+                {
+                    if( octave == 0 )
+                    {
+                        horiz_from_input_image( conf,
+                                                base,
+                                                0, stream, conf.getSiftMode() );
+                        vert_from_interm( octave, 0, stream );
+                    }
+                    else
+                    {
+                        if( conf.getScalingMode() == Config::ScaleDirect ) {
+                            horiz_from_input_image( conf, base, octave, stream,
+                                                    conf.getSiftMode() );
+                            vert_from_interm( octave, level, stream );
+                        } else { // Config::ScaleDefault
+                            downscale_from_prev_octave( octave, stream,
+                                                        conf.getSiftMode() );
+                        }
+                    }
                 }
                 else
                 {
-                    if( conf.getScalingMode() == Config::ScaleDirect ) {
-                        horiz_from_input_image( conf, base, octave, stream,
-                                                conf.getSiftMode() );
-                        vert_from_interm( octave, level, stream );
-                    } else { // Config::ScaleDefault
-                        downscale_from_prev_octave( octave, stream,
-                                                    conf.getSiftMode() );
-                    }
+                    horiz_from_prev_level( octave, level, stream );
+                    vert_from_interm( octave, level, stream );
                 }
             }
-            else
-            {
-                horiz_from_prev_level( octave, level, stream );
-                vert_from_interm( octave, level, stream );
-            }
 
-
-            err = cudaEventRecord( ev, stream );
-            POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
-
-            if( level > 0 ) {
-                dog_from_blurred( octave, level, stream );
-
-                err = cudaEventRecord( dog_ev, stream );
-                POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
-            }
-        }
+            dogs_from_blurred( octave, _levels, stream );
       }
+      cudaEvent_t  dog_ev = oct_obj.getEventDogDone();
+      err = cudaEventRecord( dog_ev, stream );
+      POP_CUDA_FATAL_TEST( err, "Could not record a Gauss done event: " );
     }
 }
 

@@ -308,10 +308,17 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
                               const uint32_t      maxlevel,
                               Extremum&           ec )
 {
+<<<<<<< HEAD
     ec.xpos    = 0;
     ec.ypos    = 0;
     ec.lpos    = 0;
     ec.sigma   = 0;
+=======
+    ec.xpos    = 0.0f;
+    ec.ypos    = 0.0f;
+    ec.lpos    = 0;
+    ec.sigma   = 0.0f;
+>>>>>>> don't process feature point by level
     ec.num_ori = 0;
 
     /*
@@ -492,10 +499,11 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         return false;
     }
 
-    ec.xpos    = xn;
-    ec.ypos    = yn;
-    ec.lpos    = (int)rintf(sn);
-    ec.sigma   = d_consts.sigma0 * pow(d_consts.sigma_k, sn); // * 2;
+    ec.xpos      = xn;
+    ec.ypos      = yn;
+    ec.old_level = level;
+    ec.lpos      = (int)rintf(sn);
+    ec.sigma     = d_consts.sigma0 * pow(d_consts.sigma_k, sn); // * 2;
         // const float sigma_k = powf(2.0f, 1.0f / levels );
 
     return true;
@@ -506,7 +514,6 @@ template<int HEIGHT, int sift_mode>
 __global__
 void find_extrema_in_dog( cudaTextureObject_t dog,
                           int                 octave,
-                          int                 level,
                           int                 width,
                           int                 height,
                           const uint32_t      maxlevel,
@@ -515,6 +522,8 @@ void find_extrema_in_dog( cudaTextureObject_t dog,
                           int*                d_number_of_blocks,
                           int                 number_of_blocks )
 {
+    const int level = blockIdx.z + 1;
+
     Extremum ec;
 
     bool indicator = find_extrema_in_dog_sub<sift_mode>( dog, octave, level, width, height, maxlevel, ec );
@@ -544,82 +553,79 @@ void Pyramid::find_extrema_sub( const Config& conf )
     for( int octave=0; octave<_num_octaves; octave++ ) {
         Octave&      oct_obj = _octaves[octave];
 
-        cudaEvent_t  reset_done_ev  = oct_obj.getEventExtremaDone(0);
+        // cudaEvent_t  reset_done_ev  = oct_obj.getEventExtremaDone(0);
 
         int*  extrema_num_blocks = oct_obj.getNumberOfBlocks( );
 
-        for( int level=1; level<_levels-2; level++ ) {
-            int cols = oct_obj.getWidth();
-            int rows = oct_obj.getHeight();
+        int cols = oct_obj.getWidth();
+        int rows = oct_obj.getHeight();
 
-            dim3 block( 32, HEIGHT );
-            dim3 grid;
-            grid.x  = grid_divide( cols, block.x );
-            grid.y  = grid_divide( rows, block.y );
+        dim3 block( 32, HEIGHT );
+        dim3 grid;
+        grid.x  = grid_divide( cols, block.x );
+        grid.y  = grid_divide( rows, block.y );
+        grid.z  = _levels - 3;
 
-            cudaStream_t oct_str = oct_obj.getStream(level+2);
+        cudaStream_t oct_str = oct_obj.getStream();
 
-            cudaEvent_t  upp_ev  = oct_obj.getEventDogDone(level+0);
-            cudaEvent_t  mid_ev  = oct_obj.getEventDogDone(level+1);
-            // cudaEvent_t  low_ev  = oct_obj.getEventDogDone(level+2); - we are in the same stream
+        // cudaStream_t oct_str = oct_obj.getStream(level+2);
+        // cudaEvent_t  upp_ev  = oct_obj.getEventDogDone(level+0);
+        // cudaEvent_t  mid_ev  = oct_obj.getEventDogDone(level+1);
+        // cudaEvent_t  low_ev  = oct_obj.getEventDogDone(level+2); - we are in the same stream
 
-            int*  extrema_counter = oct_obj.getExtremaCtPtrD( level );
-            int*  num_blocks      = &extrema_num_blocks[level];
+        int*  extrema_counter = oct_obj.getExtremaCtPtrD( );
+        int*  num_blocks      = extrema_num_blocks;
 
-            cudaStreamWaitEvent( oct_str, reset_done_ev, 0 );
-            cudaStreamWaitEvent( oct_str, upp_ev, 0 );
-            cudaStreamWaitEvent( oct_str, mid_ev, 0 );
-            // cudaStreamWaitEvent( oct_str, low_ev, 0 ); - we are in the same stream
+        // cudaStreamWaitEvent( oct_str, reset_done_ev, 0 );
+        // cudaStreamWaitEvent( oct_str, upp_ev, 0 );
+        // cudaStreamWaitEvent( oct_str, mid_ev, 0 );
+        // cudaStreamWaitEvent( oct_str, low_ev, 0 ); - we are in the same stream
 
-            switch( conf.getSiftMode() )
-            {
-            case Config::VLFeat :
+        switch( conf.getSiftMode() )
+        {
+        case Config::VLFeat :
                 find_extrema_in_dog<HEIGHT,Config::VLFeat>
                     <<<grid,block,0,oct_str>>>
                     ( oct_obj.getDogTexture( ),
                       octave,
-                      level,
                       cols,
                       rows,
                       _levels-1,
                       extrema_counter,
-                      oct_obj.getExtrema( level ),
+                      oct_obj.getExtrema( ),
                       num_blocks,
                       grid.x * grid.y );
                 break;
-            case Config::OpenCV :
+        case Config::OpenCV :
                 find_extrema_in_dog<HEIGHT,Config::OpenCV>
                     <<<grid,block,0,oct_str>>>
                     ( oct_obj.getDogTexture( ),
                       octave,
-                      level,
                       cols,
                       rows,
                       _levels-1,
                       extrema_counter,
-                      oct_obj.getExtrema( level ),
+                      oct_obj.getExtrema( ),
                       num_blocks,
                       grid.x * grid.y );
                 break;
-            default :
+        default :
                 find_extrema_in_dog<HEIGHT,Config::PopSift>
                     <<<grid,block,0,oct_str>>>
                     ( oct_obj.getDogTexture( ),
                       octave,
-                      level,
                       cols,
                       rows,
                       _levels-1,
                       extrema_counter,
-                      oct_obj.getExtrema( level ),
+                      oct_obj.getExtrema( ),
                       num_blocks,
                       grid.x * grid.y );
                 break;
-            }
-
-            cudaEvent_t  extrema_done_ev  = oct_obj.getEventExtremaDone(level+2);
-            cudaEventRecord( extrema_done_ev, oct_str );
         }
+
+        cudaEvent_t  extrema_done_ev  = oct_obj.getEventExtremaDone();
+        cudaEventRecord( extrema_done_ev, oct_str );
     }
 }
 

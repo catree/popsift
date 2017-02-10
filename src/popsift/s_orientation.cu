@@ -52,8 +52,7 @@ void ori_par( Extremum*           extremum,
               const int*          extrema_counter,
               cudaTextureObject_t layer,
               const int           w,
-              const int           h,
-              const int           level )
+              const int           h )
 {
     const int extremum_index = blockIdx.x * blockDim.y + threadIdx.y;
 
@@ -67,9 +66,10 @@ void ori_par( Extremum*           extremum,
     for( int i = threadIdx.x; i < ORI_NBINS; i += blockDim.x )  hist[threadIdx.y][i] = 0.0f;
 
     /* keypoint fractional geometry */
-    const float x    = ext->xpos;
-    const float y    = ext->ypos;
-    const float sig  = ext->sigma;
+    const float x     = ext->xpos;
+    const float y     = ext->ypos;
+    const int   level = ext->old_level;
+    const float sig   = ext->sigma;
 
     /* orientation histogram radius */
     float  sigw = ORI_WINFACTOR * sig;
@@ -269,7 +269,7 @@ public:
 };
 
 __global__
-void ori_prefix_sum( int*      extrema_counter,
+void ori_prefix_sum( const int*      extrema_counter,
                      int*      featvec_counter,
                      Extremum* extremum,
                      int*      d_feat_to_ext_map )
@@ -287,18 +287,17 @@ void ori_prefix_sum( int*      extrema_counter,
     }
 }
 
-#if __CUDA_ARCH__ > 350
 __global__
 void orientation_starter( Extremum*           extremum,
-                          int*                extrema_counter,
+                          const int*          extrema_counter,
                           int*                featvec_counter,
                           int*                d_feat_to_ext_map,
                           cudaTextureObject_t layer,
                           const int           w,
-                          const int           h,
-                          const int           level )
+                          const int           h )
 {
-    int num = *extrema_counter;
+#if __CUDA_ARCH__ > 350
+    const int num = *extrema_counter;
 
     if( num > 32 ) {
         dim3 block( 32, 2 );
@@ -310,8 +309,7 @@ void orientation_starter( Extremum*           extremum,
               extrema_counter,
               layer,
               w,
-              h,
-              level );
+              h );
     } else if( num > 0 ) {
         dim3 block( 32, 1 );
         dim3 grid( num );
@@ -322,8 +320,7 @@ void orientation_starter( Extremum*           extremum,
               extrema_counter,
               layer,
               w,
-              h,
-              level );
+              h );
     }
 
     if( num > 0 ) {
@@ -337,21 +334,10 @@ void orientation_starter( Extremum*           extremum,
               extremum,
               d_feat_to_ext_map );
     }
-}
 #else // __CUDA_ARCH__ > 350
-__global__
-void orientation_starter( Extremum*           extremum,
-                          int*                extrema_counter,
-                          int*                featvec_counter,
-                          int*                d_feat_to_ext_map,
-                          cudaTextureObject_t layer,
-                          const int           w,
-                          const int           h,
-                          const int           level )
-{
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
-}
 #endif // __CUDA_ARCH__ > 350
+}
 
 __host__
 void Pyramid::orientation( const Config& conf )
@@ -362,20 +348,17 @@ void Pyramid::orientation( const Config& conf )
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
 
-            for( int level=1; level<_levels-2; level++ ) {
-                cudaStream_t oct_str = oct_obj.getStream(level+2);
+            cudaStream_t oct_str = oct_obj.getStream();
 
-                orientation_starter
-                    <<<1,1,0,oct_str>>>
-                    ( oct_obj.getExtrema( level ),
-                      oct_obj.getExtremaCtPtrD( level ),
-                      oct_obj.getFeatVecCtPtrD( level ),
-                      oct_obj.getFeatToExtMapD( level ),
-                      oct_obj.getDataTexPoint( ),
-                      oct_obj.getWidth( ),
-                      oct_obj.getHeight( ),
-                      level );
-            }
+            orientation_starter
+                <<<1,1,0,oct_str>>>
+                ( oct_obj.getExtrema( ),
+                  oct_obj.getExtremaCtPtrD( ),
+                  oct_obj.getFeatVecCtPtrD( ),
+                  oct_obj.getFeatToExtMapD( ),
+                  oct_obj.getDataTexPoint( ),
+                  oct_obj.getWidth( ),
+                  oct_obj.getHeight( ) );
         }
     } else {
         // cerr << "Calling ori with -no- dynamic parallelism" << endl;
@@ -383,60 +366,52 @@ void Pyramid::orientation( const Config& conf )
         for( int octave=0; octave<_num_octaves; octave++ ) {
             Octave&      oct_obj = _octaves[octave];
 
-            for( int level=3; level<_levels; level++ ) {
-                cudaStreamSynchronize( oct_obj.getStream(level) );
-            }
-
             oct_obj.readExtremaCount( );
             cudaDeviceSynchronize( );
 
-            for( int level=1; level<_levels-2; level++ ) {
-                cudaStream_t oct_str = oct_obj.getStream(level+2);
+            cudaStream_t oct_str = oct_obj.getStream();
 
-                int num = oct_obj.getExtremaCountH(level);
+            int num = oct_obj.getExtremaCountH();
 
-                if( num > 0 ) {
-                    dim3 block;
-                    dim3 grid;
+            if( num > 0 ) {
+                dim3 block;
+                dim3 grid;
 
-                    if( num > 32 ) {
-                        block.x = 32;
-                        block.y = 2;
-                        grid.x  = grid_divide( num, 2 );
-
-                        ori_par<2>
-                            <<<grid,block,0,oct_str>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getExtremaCtPtrD( level ),
-                              oct_obj.getDataTexPoint( ),
-                              oct_obj.getWidth( ),
-                              oct_obj.getHeight( ),
-                              level );
-                    } else {
-                        block.x = 32;
-                        block.y = 1;
-                        grid.x  = num;
-
-                        ori_par<1>
-                            <<<grid,block,0,oct_str>>>
-                            ( oct_obj.getExtrema( level ),
-                              oct_obj.getExtremaCtPtrD( level ),
-                              oct_obj.getDataTexPoint( ),
-                              oct_obj.getWidth( ),
-                              oct_obj.getHeight( ),
-                              level );
-                    }
-
+                if( num > 32 ) {
                     block.x = 32;
-                    block.y = 32;
-                    grid.x  = 1;
-                    ori_prefix_sum
+                    block.y = 2;
+                    grid.x  = grid_divide( num, 2 );
+
+                    ori_par<2>
                         <<<grid,block,0,oct_str>>>
-                        ( oct_obj.getExtremaCtPtrD( level ),
-                          oct_obj.getFeatVecCtPtrD( level ),
-                          oct_obj.getExtrema( level ),
-                          oct_obj.getFeatToExtMapD(level) );
+                        ( oct_obj.getExtrema( ),
+                          oct_obj.getExtremaCtPtrD( ),
+                          oct_obj.getDataTexPoint( ),
+                          oct_obj.getWidth( ),
+                          oct_obj.getHeight( ) );
+                } else {
+                    block.x = 32;
+                    block.y = 1;
+                    grid.x  = num;
+
+                    ori_par<1>
+                        <<<grid,block,0,oct_str>>>
+                        ( oct_obj.getExtrema( ),
+                          oct_obj.getExtremaCtPtrD( ),
+                          oct_obj.getDataTexPoint( ),
+                          oct_obj.getWidth( ),
+                          oct_obj.getHeight( ) );
                 }
+
+                block.x = 32;
+                block.y = 32;
+                grid.x  = 1;
+                ori_prefix_sum
+                    <<<grid,block,0,oct_str>>>
+                    ( oct_obj.getExtremaCtPtrD( ),
+                      oct_obj.getFeatVecCtPtrD( ),
+                      oct_obj.getExtrema( ),
+                      oct_obj.getFeatToExtMapD( ) );
             }
         }
     }

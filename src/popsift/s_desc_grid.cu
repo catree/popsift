@@ -22,15 +22,15 @@ void ext_desc_grid_sub( const int           ix,
                         const float         ang,
                         const Extremum*     ext,
                         float* __restrict__ features,
-                        cudaTextureObject_t layer_tex,
-                        const int           level )
+                        cudaTextureObject_t layer_tex )
 {
     const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
 
-    const float x    = ext->xpos;
-    const float y    = ext->ypos;
-    const float sig  = ext->sigma;
-    const float SBP  = fabsf(DESC_MAGNIFY * sig);
+    const float x     = ext->xpos;
+    const float y     = ext->ypos;
+    const float sig   = ext->sigma;
+    const int   level = ext->old_level;
+    const float SBP   = fabsf(DESC_MAGNIFY * sig);
 
     if( SBP == 0 ) {
         return;
@@ -126,8 +126,7 @@ __global__
 void ext_desc_grid( Extremum*           extrema,
                     Descriptor*         descs,
                     int*                feat_to_ext_map,
-                    cudaTextureObject_t layer_tex,
-                    const int           level )
+                    cudaTextureObject_t layer_tex )
 {
     const int   ix       = threadIdx.y;
     const int   iy       = threadIdx.z;
@@ -145,7 +144,6 @@ void ext_desc_grid( Extremum*           extrema,
                        ang,
                        ext,
                        desc->features,
-                       layer_tex,
-                       level );
+                       layer_tex );
 }
 
