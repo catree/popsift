@@ -23,6 +23,7 @@ struct Extremum
 {
     float xpos;
     float ypos;
+    int   lpos;  // extremum refined into this level
     float sigma; // scale;
 
     int   num_ori; // number of this extremum's orientations

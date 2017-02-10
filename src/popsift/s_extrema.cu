@@ -310,6 +310,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 {
     ec.xpos    = 0;
     ec.ypos    = 0;
+    ec.lpos    = 0;
     ec.sigma   = 0;
     ec.num_ori = 0;
 
@@ -493,6 +494,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 
     ec.xpos    = xn;
     ec.ypos    = yn;
+    ec.lpos    = (int)rintf(sn);
     ec.sigma   = d_consts.sigma0 * pow(d_consts.sigma_k, sn); // * 2;
         // const float sigma_k = powf(2.0f, 1.0f / levels );
 
