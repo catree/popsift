@@ -308,17 +308,10 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
                               const uint32_t      maxlevel,
                               Extremum&           ec )
 {
-<<<<<<< HEAD
-    ec.xpos    = 0;
-    ec.ypos    = 0;
-    ec.lpos    = 0;
-    ec.sigma   = 0;
-=======
     ec.xpos    = 0.0f;
     ec.ypos    = 0.0f;
     ec.lpos    = 0;
     ec.sigma   = 0.0f;
->>>>>>> don't process feature point by level
     ec.num_ori = 0;
 
     /*
