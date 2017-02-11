@@ -47,7 +47,7 @@ void ext_desc_pl_load_grid( float2              gradcache[40][40],
 
     for( int yd = threadIdx.z*4+threadIdx.y; yd<40; yd += 16 )
     {
-        for( int xd = threadIdx.x; __any(xd<40); xd += 32 ) if( xd<40 )
+        for( int xd = threadIdx.x; ::__any(xd<40); xd += 32 ) if( xd<40 )
         {
             float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
             float2 pix  = pixo * SBP;
@@ -62,7 +62,7 @@ void ext_desc_pl_load_grid( float2              gradcache[40][40],
                           level );
         }
 
-        __any(yd<40); // fake a barrier for a single warp only
+        ::__any(yd<40); // fake a barrier for a single warp only
     }
     __syncthreads();
 }
