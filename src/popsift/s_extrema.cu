@@ -505,6 +505,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 
 template<int HEIGHT, int sift_mode>
 __global__
+__launch_bounds__(128,16)
 void find_extrema_in_dog( cudaTextureObject_t dog,
                           int                 octave,
                           int                 width,
