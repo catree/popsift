@@ -10,6 +10,8 @@
 #include "sift_extremum.h"
 #include "common/plane_2d.h"
 
+#undef BLOCK_3_DIMS
+
 __global__
 void ext_desc_loop( popsift::Extremum*     extrema,
                     popsift::Descriptor*   descs,
@@ -31,9 +33,15 @@ inline static bool start_ext_desc_loop( Octave& oct_obj )
 
     if( grid.x == 0 ) return false;
 
+#ifndef BLOCK_3_DIMS
     block.x = 32;
     block.y = 4;
     block.z = 4;
+#else
+    block.x = 32;
+    block.y = 1;
+    block.z = 16;
+#endif
 
     ext_desc_loop
         <<<grid,block,0,oct_obj.getStream()>>>
@@ -63,9 +71,15 @@ void start_ext_desc_loop( int*                featvec_counter,
 
     if( grid.x == 0 ) return;
 
+#ifndef BLOCK_3_DIMS
     block.x = 32;
     block.y = 4;
     block.z = 4;
+#else
+    block.x = 32;
+    block.y = 1;
+    block.z = 16;
+#endif
 
     ext_desc_loop
         <<<grid,block>>>

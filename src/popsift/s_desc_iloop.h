@@ -32,8 +32,8 @@ inline static bool start_ext_desc_iloop( Octave& oct_obj )
     if( grid.x == 0 ) return false;
 
     block.x = 32;
-    block.y = 4;
-    block.z = 4;
+    block.y = 1;
+    block.z = 16;
 
     ext_desc_iloop
         <<<grid,block,0,oct_obj.getStream()>>>
@@ -64,8 +64,8 @@ void start_ext_desc_iloop( int*                featvec_counter,
     if( grid.x == 0 ) return;
 
     block.x = 32;
-    block.y = 4;
-    block.z = 4;
+    block.y = 1;
+    block.z = 16;
 
     ext_desc_iloop
         <<<grid,block>>>

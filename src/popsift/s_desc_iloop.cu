@@ -24,9 +24,9 @@ void ext_desc_iloop_sub( const float         ang,
                         const int           width,
                         const int           height )
 {
-    const int ix   = threadIdx.y;
-    const int iy   = threadIdx.z;
-    const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
+    const int ix   = ( threadIdx.z &  0x3 );
+    const int iy   = ( threadIdx.z >> 2 );
+    const int tile = ( threadIdx.z << 3 );
 
     const float x    = ext->xpos;
     const float y    = ext->ypos;
