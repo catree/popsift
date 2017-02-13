@@ -48,6 +48,7 @@ struct Config
     /* Modes for descriptor extraction: */
     enum DescMode {
         Loop,        // scan horizontal, extract valid points
+        ILoop,       // scan horizontal, extract valid points, interpolate with tex engine
         Grid,        // scan in rotated mode, round pixel address
         IGrid,       // scan in rotated mode, interpolate with tex engine
         PLGrid,      // preload gradiants, else like Grid

@@ -40,7 +40,7 @@ inline static bool start_ext_desc_iloop( Octave& oct_obj )
         ( oct_obj.getExtrema( ),
           oct_obj.getDescriptors( ),
           oct_obj.getFeatToExtMapD( ),
-          oct_obj.getDataTexPoint( ),
+          oct_obj.getDataTexLinear( ),
           oct_obj.getWidth(),
           oct_obj.getHeight() );
 

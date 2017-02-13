@@ -66,6 +66,8 @@ void Config::setDescMode( const std::string& text )
 {
     if( text == "loop" )
         setDescMode( Config::Loop );
+    else if( text == "iloop" )
+        setDescMode( Config::ILoop );
     else if( text == "grid" )
         setDescMode( Config::Grid );
     else if( text == "igrid" )

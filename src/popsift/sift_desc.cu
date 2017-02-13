@@ -14,6 +14,7 @@
 #include "s_gradiant.h"
 #include "s_desc_normalize.h"
 #include "s_desc_loop.h"
+#include "s_desc_iloop.h"
 #include "s_desc_grid.h"
 #include "s_desc_igrid.h"
 #include "s_desc_pl_grid.h"
@@ -68,6 +69,48 @@ __global__ void ext_desc_loop_starter( int*                featvec_counter,
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
 #endif // __CUDA_ARCH__ > 350
 }
+
+__global__ void ext_desc_iloop_starter( int*                featvec_counter,
+                                        Extremum*           extrema,
+                                        Descriptor*         descs,
+                                        int*                feat_to_ext_map,
+                                        cudaTextureObject_t layer_tex,
+                                        const int           w,
+                                        const int           h,
+                                        bool                use_root_sift )
+{
+#if __CUDA_ARCH__ > 350
+    if( *featvec_counter == 0 ) return;
+
+    start_ext_desc_iloop( featvec_counter,
+                         extrema,
+                         descs,
+                         feat_to_ext_map,
+                         layer_tex,
+                         w,
+                         h );
+
+    dim3 grid;
+    dim3 block;
+    grid.x  = grid_divide( *featvec_counter, 32 );
+    block.x = 32;
+    block.y = 32;
+    block.z = 1;
+
+    if( use_root_sift ) {
+        normalize_histogram_root_sift
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    } else {
+        normalize_histogram_l2
+            <<<grid,block>>>
+            ( descs, *featvec_counter );
+    }
+#else // __CUDA_ARCH__ > 350
+    printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
+#endif // __CUDA_ARCH__ > 350
+}
+
 __global__ void ext_desc_grid_starter( int*                featvec_counter,
                                        Extremum*           extrema,
                                        Descriptor*         descs,
@@ -253,6 +296,17 @@ void Pyramid::descriptors( const Config& conf )
                           oct_obj.getWidth( ),
                           oct_obj.getHeight( ),
                           conf.getUseRootSift() );
+            } else if( conf.getDescMode() == Config::ILoop ) {
+                    ext_desc_iloop_starter
+                        <<<1,1,0,oct_str>>>
+                        ( oct_obj.getFeatVecCtPtrD( ),
+                          oct_obj.getExtrema( ),
+                          oct_obj.getDescriptors( ),
+                          oct_obj.getFeatToExtMapD( ),
+                          oct_obj.getDataTexLinear( ),
+                          oct_obj.getWidth( ),
+                          oct_obj.getHeight( ),
+                          conf.getUseRootSift() );
             } else if( conf.getDescMode() == Config::Grid ) {
                     ext_desc_grid_starter
                         <<<1,1,0,oct_str>>>
@@ -322,6 +376,8 @@ void Pyramid::descriptors( const Config& conf )
             if( grid.x != 0 ) {
                 if( conf.getDescMode() == Config::Loop ) {
                     start_ext_desc_loop( oct_obj );
+                } else if( conf.getDescMode() == Config::ILoop ) {
+                    start_ext_desc_iloop( oct_obj );
                 } else if( conf.getDescMode() == Config::Grid ) {
                     start_ext_desc_grid( oct_obj );
                 } else if( conf.getDescMode() == Config::IGrid ) {

@@ -59,18 +59,18 @@ void ext_desc_iloop_sub( const float         ang,
     const float pty = ::fmaf( csbp, offsetpt.y, ::fmaf(  ssbp, offsetpt.x, y ) );
 
     const float bsz = fabsf(csbp) + fabsf(ssbp);
-    const int   xmin = ptx - bsz;
-    const int   ymin = pty - bsz;
-    const int   xmax = ptx + bsz;
-    const int   ymax = pty + bsz;
+    const int   xmin = max(1,          (int)floorf(ptx - bsz));
+    const int   ymin = max(1,          (int)floorf(pty - bsz));
+    const int   xmax = min(width - 2,  (int)floorf(ptx + bsz));
+    const int   ymax = min(height - 2, (int)floorf(pty + bsz));
 
     const int wx = xmax - xmin + 1;
     const int hy = ymax - ymin + 1;
-    const int loops = wx * hy;
+    const int iloops = wx * hy;
 
     float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    for( int i = threadIdx.x; i < loops; i+=blockDim.x )
+    for( int i = threadIdx.x; i < iloops; i+=blockDim.x )
     {
         const int ii = i / wx + ymin;
         const int jj = i % wx + xmin;     
@@ -85,7 +85,7 @@ void ext_desc_iloop_sub( const float         ang,
         if (nn.x < 1.0f && nn.y < 1.0f) {
             float mod;
             float th;
-            get_gradiant( mod, th, jj, ii, layer_tex, level );
+            float_get_gradiant( mod, th, jj+0.5f, ii+0.5f, layer_tex, level );
 
             const float2 dn = n + offsetpt;
             const float  ww = __expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3));
