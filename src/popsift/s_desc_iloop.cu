@@ -46,49 +46,42 @@ void ext_desc_iloop_sub( const float         ang,
 
     const float csbp  = cos_t * SBP;
     const float ssbp  = sin_t * SBP;
-    const float crsbp = cos_t / SBP;
-    const float srsbp = sin_t / SBP;
+    // const float crsbp = cos_t / SBP;
+    // const float srsbp = sin_t / SBP;
 
-    const float2 offsetpt = make_float2( ix - 1.5f,
-                                         iy - 1.5f );
+    const float offsetptx = ix - 1.5f;
+    const float offsetpty = iy - 1.5f;
 
     // The following 2 lines were the primary bottleneck of this kernel
     // const float ptx = csbp * offsetptx - ssbp * offsetpty + x;
     // const float pty = csbp * offsetpty + ssbp * offsetptx + y;
-    const float ptx = ::fmaf( csbp, offsetpt.x, ::fmaf( -ssbp, offsetpt.y, x ) );
-    const float pty = ::fmaf( csbp, offsetpt.y, ::fmaf(  ssbp, offsetpt.x, y ) );
+    const float ptx = ::fmaf( csbp, offsetptx, -ssbp * offsetpty );
+    const float pty = ::fmaf( csbp, offsetpty,  ssbp * offsetptx );
 
-    const float bsz = fabsf(csbp) + fabsf(ssbp);
-    const int   xmin = max(1,          (int)floorf(ptx - bsz));
-    const int   ymin = max(1,          (int)floorf(pty - bsz));
-    const int   xmax = min(width - 2,  (int)floorf(ptx + bsz));
-    const int   ymax = min(height - 2, (int)floorf(pty + bsz));
-
-    const int wx = xmax - xmin + 1;
-    const int hy = ymax - ymin + 1;
-    const int iloops = wx * hy;
+    const float bsz = fabsf(cos_t) + fabsf(sin_t);
 
     float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    for( int i = threadIdx.x; i < iloops; i+=blockDim.x )
+    const int j = threadIdx.x;
+    for( int i = 0; i<32; i++ )
     {
-        const int ii = i / wx + ymin;
-        const int jj = i % wx + xmin;     
+        const float dx = ( - bsz + j * bsz/16.0f );
+        const float dy = ( - bsz + i * bsz/16.0f );
 
-        const float2 d = make_float2( jj - ptx, ii - pty );
-
-        // const float nx = crsbp * dx + srsbp * dy;
-        // const float ny = crsbp * dy - srsbp * dx;
-        const float2 n = make_float2( ::fmaf( crsbp, d.x,  srsbp * d.y ),
-                                      ::fmaf( crsbp, d.y, -srsbp * d.x ) );
+        const float2 n = make_float2( ::fmaf( cos_t, dx,  sin_t * dy ),
+                                      ::fmaf( cos_t, dy, -sin_t * dx ) );
         const float2 nn = abs(n);
         if (nn.x < 1.0f && nn.y < 1.0f) {
+            const float jj = x + ptx + dx * SBP;
+            const float ii = y + pty + dy * SBP;
+
             float mod;
             float th;
             float_get_gradiant( mod, th, jj+0.5f, ii+0.5f, layer_tex, level );
 
-            const float2 dn = n + offsetpt;
-            const float  ww = __expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3));
+            const float dnx = n.x + offsetptx;
+            const float dny = n.y + offsetpty;
+            const float  ww = __expf( -scalbnf(dnx*dnx + dny*dny, -3));
             // const float ww  = __expf(-0.125f * (dnx*dnx + dny*dny)); // speedup !
             const float2 w  = make_float2( 1.0f - nn.x,
                                            1.0f - nn.y );
