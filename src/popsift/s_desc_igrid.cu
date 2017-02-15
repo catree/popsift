@@ -78,10 +78,6 @@ void ext_desc_igrid_sub( const float         ang,
         // pix = round( pt + pix ) - pt;
         // pixo = pix / SBP;
 
-        float mod;
-        float th;
-        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, texLinear, level );
-
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
 
@@ -91,6 +87,10 @@ void ext_desc_igrid_sub( const float         ang,
                                         1.0f - fabsf(norm_pix.y) );
 
         if( w.x < 0.0f || w.y < 0.0f ) continue;
+
+        float mod;
+        float th;
+        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, texLinear, level );
 
         const float  wgt = ww * w.x * w.y * mod;
 

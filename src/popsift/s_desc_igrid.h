@@ -36,11 +36,11 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj )
     if( grid.x == 0 ) return false;
 
 #ifdef IGRID_XDIM_IS_32
-    block.x = 16;
+    block.x = 32;
     block.y = 4;
     block.z = 4;
 #else
-    block.x = 32;
+    block.x = 16;
     block.y = 4;
     block.z = 4;
 #endif
@@ -70,11 +70,11 @@ void start_ext_desc_igrid( int*                featvec_counter,
     if( grid.x == 0 ) return;
 
 #ifdef IGRID_XDIM_IS_32
-    block.x = 16;
+    block.x = 32;
     block.y = 4;
     block.z = 4;
 #else
-    block.x = 32;
+    block.x = 16;
     block.y = 4;
     block.z = 4;
 #endif
