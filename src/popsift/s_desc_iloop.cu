@@ -11,7 +11,7 @@
 #include "sift_constants.h"
 #include "s_gradiant.h"
 #include "s_desc_iloop.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/vec_macros.h"
 
 using namespace popsift;
@@ -77,7 +77,11 @@ void ext_desc_iloop_sub( const float         ang,
 
             float mod;
             float th;
-            float_get_gradiant( mod, th, jj+0.5f, ii+0.5f, layer_tex, level );
+#if 1
+            get_gradiant( mod, th, jj, ii, layer_tex, level );
+#else
+            get_gradiant( mod, th, jj, ii, cos_t, sin_t, layer_tex, level );
+#endif
 
             const float dnx = n.x + offsetptx;
             const float dny = n.y + offsetpty;
@@ -87,7 +91,9 @@ void ext_desc_iloop_sub( const float         ang,
                                            1.0f - nn.y );
             const float wgt = ww * w.x * w.y * mod;
 
+#if 1
             th -= ang;
+#endif
             th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
             th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
 

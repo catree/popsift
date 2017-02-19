@@ -9,7 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include "common/debug_macros.h"
-#include "assist.h"
+#include "common/assist.h"
 #include <stdio.h>
 #include <assert.h>
 

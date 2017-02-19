@@ -11,7 +11,7 @@
 #include "sift_constants.h"
 #include "s_gradiant.h"
 #include "s_desc_igrid.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/vec_macros.h"
 
 using namespace popsift;
@@ -80,7 +80,7 @@ void ext_desc_igrid_sub( const float         ang,
 
         float mod;
         float th;
-        float_get_gradiant( mod, th, (pt+pix).x+0.5f, (pt+pix).y+0.5f, texLinear, level );
+        get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, texLinear, level );
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );

@@ -9,7 +9,7 @@
 #include "sift_constants.h"
 #include "gauss_filter.h"
 #include "common/debug_macros.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/clamp.h"
 
 #include <iostream>
@@ -53,14 +53,13 @@ inline float octave_fixed_vert( cudaTextureObject_t src_data, int idx, int idy, 
      * will eventually write (The 2*SHIFT rightmost threads will not write anything).
      * Thread N computes and returns the vertical filter at position N-SHIFT.
      */
-    const float TSHIFT = 0.5f;
-    float       val    = tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy+TSHIFT, level );
+    float       val    = readTex( src_data, idx-SHIFT, idy, level );
 
     float       fval   = val * filter[0];
     #pragma unroll
     for( int i=1; i<=SHIFT; i++ ) {
-        val   = tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy-i+TSHIFT, level )
-              + tex2DLayered<float>( src_data, idx-SHIFT+TSHIFT, idy+i+TSHIFT, level );
+        val   = readTex( src_data, idx-SHIFT, idy-i, level )
+              + readTex( src_data, idx-SHIFT, idy+i, level );
         fval += val * filter[i];
     }
 
@@ -99,8 +98,7 @@ void octave_fixed( cudaTextureObject_t src_data,
     __syncthreads();
 
     if( IDx < WIDTH ) {
-        const float TSHIFT = 0.5f;
-        const float l0_val = tex2DLayered<float>( src_data, idx+TSHIFT, idy+TSHIFT, 0 );
+        const float l0_val = readTex( src_data, idx, idy, 0 );
         const float dogval = ( IDz == 0 )
                            ? fval - l0_val
                            : fval - lx_val[IDy][IDx][IDz-1];

@@ -26,5 +26,16 @@ inline int grid_divide( int size, int divider )
     return size / divider + ( size % divider != 0 ? 1 : 0 );
 }
 
+__device__ static inline
+float readTex( cudaTextureObject_t tex, float x, float y, float z )
+{
+    /* Look at CUDA C programming guide:
+     * Doesn't matter if we access Linear or Point textures,
+     * we will get the expected cell (or an interpolation very 
+     * close by) iff we add 0.5f to X and Y coordinate.
+     */
+    return tex2DLayered<float>( tex, x+0.5f, y+0.5f, z );
+}
+
 }; // namespace popsift
 

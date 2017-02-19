@@ -39,7 +39,8 @@ class Octave
         cudaChannelFormatDesc _dog_3d_desc;
         cudaExtent            _dog_3d_ext;
         cudaSurfaceObject_t   _dog_3d_surf;
-        cudaTextureObject_t   _dog_3d_tex;
+        cudaTextureObject_t   _dog_3d_tex_point;
+        cudaTextureObject_t   _dog_3d_tex_linear;
 
         // one CUDA stream per level
         // consider whether some of them can be removed
@@ -124,8 +125,11 @@ class Octave
         inline cudaSurfaceObject_t& getDogSurface( ) {
             return _dog_3d_surf;
         }
-        inline cudaTextureObject_t& getDogTexture( ) {
-            return _dog_3d_tex;
+        inline cudaTextureObject_t& getDogTexturePoint( ) {
+            return _dog_3d_tex_point;
+        }
+        inline cudaTextureObject_t& getDogTextureLinear( ) {
+            return _dog_3d_tex_linear;
         }
 
         // inline uint32_t getFloatSizeData() const { return _data[0].getByteSize() / sizeof(float); }

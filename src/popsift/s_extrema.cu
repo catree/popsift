@@ -13,15 +13,14 @@
 #include "sift_constants.h"
 #include "s_solve.h"
 #include "common/debug_macros.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/clamp.h"
 
 namespace popsift{
 
 template<int HEIGHT>
-__device__
-static
-inline uint32_t extrema_count( int indicator, int* extrema_counter )
+__device__ static inline
+uint32_t extrema_count( int indicator, int* extrema_counter )
 {
     uint32_t mask = __ballot( indicator ); // bitfield of warps with results
 
@@ -51,8 +50,7 @@ inline void extremum_cmp( float val, float f, uint32_t& gt, uint32_t& lt, uint32
     lt |= ( ( val < f ) ? mask : 0 );
 }
 
-
-#define TX(dx,dy,dz) tex2DLayered<float>( obj, x+dx+0.5f, y+dy+0.5f, z+dz )
+#define TX(dx,dy,dz) readTex( obj, x+dx, y+dy, z+dz )
 
 __device__
 static
@@ -174,9 +172,9 @@ public:
             // return -1;
         // }
 
-        n.x += rintf( d.x );  // quicker roundf
-        n.y += rintf( d.y );  // quicker roundf
-        n.z += rintf( d.z );  // quicker roundf
+        n.x += roundf( d.x );  // choose rintf or roundf
+        n.y += roundf( d.y );  // rintf is quicker, roundf is more exact
+        n.z += roundf( d.z );
 
         const int retval = ( n.x < 5 || n.x >= width-5 ||
                              n.y < 5 || n.y >= height-5 ||
@@ -338,7 +336,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         }
     }
 
-    const float val = tex2DLayered<float>( dog, x+0.5f, y+0.5f, level );
+    const float val = readTex( dog, x, y, level );
 
     ModeFunctions<sift_mode> f;
     if( not f.first_contrast_ok( val ) ) return false;
@@ -366,12 +364,12 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
 
         // const int z = level - 1;
         /* compute gradient */
-        const float x2y1z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z   );
-        const float x0y1z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z   );
-        const float x1y2z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z   );
-        const float x1y0z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z   );
-        const float x1y1z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z+1 );
-        const float x1y1z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z-1 );
+        const float x2y1z1 = readTex( dog, n.x+1, n.y  , n.z   );
+        const float x0y1z1 = readTex( dog, n.x-1, n.y  , n.z   );
+        const float x1y2z1 = readTex( dog, n.x  , n.y+1, n.z   );
+        const float x1y0z1 = readTex( dog, n.x  , n.y-1, n.z   );
+        const float x1y1z2 = readTex( dog, n.x  , n.y  , n.z+1 );
+        const float x1y1z0 = readTex( dog, n.x  , n.y  , n.z-1 );
         // D.x = 0.5f * ( x2y1z1 - x0y1z1 );
         // D.y = 0.5f * ( x1y2z1 - x1y0z1 );
         // D.z = 0.5f * ( x1y1z2 - x1y1z0 );
@@ -380,7 +378,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         D.z = scalbnf( x1y1z2 - x1y1z0, -1 );
 
         /* compute Hessian */
-        const float x1y1z1 = tex2DLayered<float>( dog, n.x  +0.5f, n.y  +0.5f, n.z   );
+        const float x1y1z1 = readTex( dog, n.x  , n.y  , n.z   );
         // DD.x = x2y1z1 + x0y1z1 - 2.0f * x1y1z1;
         // DD.y = x1y2z1 + x1y0z1 - 2.0f * x1y1z1;
         // DD.z = x1y1z2 + x1y1z0 - 2.0f * x1y1z1;
@@ -388,18 +386,18 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
         DD.y = x1y2z1 + x1y0z1 - scalbnf( x1y1z1, 1 );
         DD.z = x1y1z2 + x1y1z0 - scalbnf( x1y1z1, 1 );
 
-        const float x0y0z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y-1+0.5f, n.z   );
-        const float x0y1z0 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z-1 );
-        const float x0y1z2 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y  +0.5f, n.z+1 );
-        const float x0y2z1 = tex2DLayered<float>( dog, n.x-1+0.5f, n.y+1+0.5f, n.z   );
-        const float x1y0z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z-1 );
-        const float x1y0z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y-1+0.5f, n.z+1 );
-        const float x1y2z0 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z-1 );
-        const float x1y2z2 = tex2DLayered<float>( dog, n.x  +0.5f, n.y+1+0.5f, n.z+1 );
-        const float x2y0z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y-1+0.5f, n.z   );
-        const float x2y1z0 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z-1 );
-        const float x2y1z2 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y  +0.5f, n.z+1 );
-        const float x2y2z1 = tex2DLayered<float>( dog, n.x+1+0.5f, n.y+1+0.5f, n.z   );
+        const float x0y0z1 = readTex( dog, n.x-1, n.y-1, n.z   );
+        const float x0y1z0 = readTex( dog, n.x-1, n.y  , n.z-1 );
+        const float x0y1z2 = readTex( dog, n.x-1, n.y  , n.z+1 );
+        const float x0y2z1 = readTex( dog, n.x-1, n.y+1, n.z   );
+        const float x1y0z0 = readTex( dog, n.x  , n.y-1, n.z-1 );
+        const float x1y0z2 = readTex( dog, n.x  , n.y-1, n.z+1 );
+        const float x1y2z0 = readTex( dog, n.x  , n.y+1, n.z-1 );
+        const float x1y2z2 = readTex( dog, n.x  , n.y+1, n.z+1 );
+        const float x2y0z1 = readTex( dog, n.x+1, n.y-1, n.z   );
+        const float x2y1z0 = readTex( dog, n.x+1, n.y  , n.z-1 );
+        const float x2y1z2 = readTex( dog, n.x+1, n.y  , n.z+1 );
+        const float x2y2z1 = readTex( dog, n.x+1, n.y+1, n.z   );
         // DX.x = 0.25f * ( x2y2z1 + x0y0z1 - x0y2z1 - x2y0z1 );
         // DX.y = 0.25f * ( x2y1z2 + x0y1z0 - x0y1z2 - x2y1z0 );
         // DX.z = 0.25f * ( x1y2z2 + x1y0z0 - x1y2z0 - x1y0z2 );
@@ -495,7 +493,7 @@ bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
     ec.xpos      = xn;
     ec.ypos      = yn;
     ec.old_level = level;
-    ec.lpos      = (int)rintf(sn);
+    ec.lpos      = (int)roundf(sn);
     ec.sigma     = d_consts.sigma0 * pow(d_consts.sigma_k, sn); // * 2;
         // const float sigma_k = powf(2.0f, 1.0f / levels );
 
@@ -573,6 +571,11 @@ void Pyramid::find_extrema_sub( const Config& conf )
         // cudaStreamWaitEvent( oct_str, mid_ev, 0 );
         // cudaStreamWaitEvent( oct_str, low_ev, 0 ); - we are in the same stream
 
+#ifdef USE_DOG_TEX_LINEAR
+#define getDogTexture getDogTextureLinear
+#else
+#define getDogTexture getDogTexturePoint
+#endif
         switch( conf.getSiftMode() )
         {
         case Config::VLFeat :
@@ -615,6 +618,7 @@ void Pyramid::find_extrema_sub( const Config& conf )
                       grid.x * grid.y );
                 break;
         }
+#undef getDogTexture
 
         cudaEvent_t  extrema_done_ev  = oct_obj.getEventExtremaDone();
         cudaEventRecord( extrema_done_ev, oct_str );

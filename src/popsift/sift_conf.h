@@ -14,6 +14,8 @@
 #define MAX_OCTAVES   20
 #define MAX_LEVELS    10
 
+#define USE_DOG_TEX_LINEAR
+
 namespace popsift
 {
 

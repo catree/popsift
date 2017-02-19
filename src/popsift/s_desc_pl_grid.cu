@@ -11,7 +11,7 @@
 #include "sift_constants.h"
 #include "s_gradiant.h"
 #include "s_desc_pl_grid.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/vec_macros.h"
 
 using namespace popsift;

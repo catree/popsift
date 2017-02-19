@@ -19,7 +19,7 @@
 #include "s_desc_igrid.h"
 #include "s_desc_pl_grid.h"
 #include "s_desc_pl_igrid.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/debug_macros.h"
 
 /*************************************************************
