@@ -77,7 +77,7 @@ void ext_desc_iloop_sub( const float         ang,
 
             float mod;
             float th;
-#if 1
+#if 0
             get_gradiant( mod, th, jj, ii, layer_tex, level );
 #else
             get_gradiant( mod, th, jj, ii, cos_t, sin_t, layer_tex, level );
@@ -91,7 +91,7 @@ void ext_desc_iloop_sub( const float         ang,
                                            1.0f - nn.y );
             const float wgt = ww * w.x * w.y * mod;
 
-#if 1
+#if 0
             th -= ang;
 #endif
             th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;

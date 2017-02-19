@@ -80,7 +80,11 @@ void ext_desc_igrid_sub( const float         ang,
 
         float mod;
         float th;
+#if 0
         get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, texLinear, level );
+#else
+        get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, cos_t, sin_t, texLinear, level );
+#endif
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
@@ -94,7 +98,9 @@ void ext_desc_igrid_sub( const float         ang,
 
         const float  wgt = ww * w.x * w.y * mod;
 
+#if 0
         th -= ang;
+#endif
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
         th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
 

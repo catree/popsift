@@ -74,7 +74,7 @@ void ext_desc_grid_sub( const int           ix,
 
         float mod;
         float th;
-        get_gradiant( mod, th, int((pt+pix).x), int((pt+pix).y), layer_tex, level );
+        get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, layer_tex, level );
 
         const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
                                              ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
