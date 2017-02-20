@@ -79,24 +79,159 @@ void ext_desc_notile_sub( const float                  x,
     }
     __syncthreads();
 
-    for( int xd = threadIdx.x; xd<16; xd+= 8 )
-    for( int yd = threadIdx.y; yd<16; yd+= 8 )
-    for( int ix=0; ix<4; ix++ )
-    for( int iy=0; iy<4; iy++ )
+    int xd = threadIdx.x;
+    int yd = threadIdx.y;
+    // for( int ix=0; ix<4; ix++ )
+    // for( int iy=0; iy<4; iy++ )
     {
-        const int offx = ix*8+xd;
-        const int offy = iy*8+yd;
+        int offx, offy;
+        float mod, th;
 
-        float mod;
-        float th;
+        offx = 0*8+xd;
+        offy = 0+yd;
         ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 0, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 0*8+xd;
+        offy = 1*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 0, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 1, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 0*8+xd;
+        offy = 2*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 1, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 2, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 0*8+xd;
+        offy = 3*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 2, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 3, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 0*8+xd;
+        offy = 4*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 3, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
 
-        const float ww = d_consts.desc_gauss[offy][offx];
+        offx = 1*8+xd;
+        offy = 0+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 0, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 0, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 1*8+xd;
+        offy = 1*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 0, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 1, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 0, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 1, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 1*8+xd;
+        offy = 2*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 1, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 2, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 1, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 2, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 1*8+xd;
+        offy = 3*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 2, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 0, 3, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 2, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 3, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 1*8+xd;
+        offy = 4*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 0, 3, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 3, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
 
-        ext_desc_inc_tile( dpt, ix, iy, xd, yd, th, mod, ww );
+        offx = 2*8+xd;
+        offy = 0+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 1, 0, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 0, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 2*8+xd;
+        offy = 1*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 1, 0, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 1, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 0, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 1, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 2*8+xd;
+        offy = 2*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 1, 1, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 2, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 1, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 2, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 2*8+xd;
+        offy = 3*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 1, 2, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 1, 3, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 2, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 3, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 2*8+xd;
+        offy = 4*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 1, 3, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 3, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
 
-        __syncthreads();
+        offx = 3*8+xd;
+        offy = 0+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 2, 0, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 0, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 3*8+xd;
+        offy = 1*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 2, 0, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 1, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 0, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 1, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 3*8+xd;
+        offy = 2*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 2, 1, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 2, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 1, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 2, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 3*8+xd;
+        offy = 3*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 2, 2, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 2, 3, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 2, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 3, xd, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 3*8+xd;
+        offy = 4*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 2, 3, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 3, xd, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+
+        offx = 4*8+xd;
+        offy = 0+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 3, 0, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 4*8+xd;
+        offy = 1*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 3, 0, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 1, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 4*8+xd;
+        offy = 2*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 3, 1, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 2, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 4*8+xd;
+        offy = 3*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 3, 2, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
+        ext_desc_inc_tile( dpt, 3, 3, xd+8, yd, th, mod, d_consts.desc_gauss[offy][offx] );
+        offx = 4*8+xd;
+        offy = 4*8+yd;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+        ext_desc_inc_tile( dpt, 3, 3, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
     }
+    __syncthreads();
 
     for( int i=base; i<128; i+=step ) {
         features[i] = dpt[i];
