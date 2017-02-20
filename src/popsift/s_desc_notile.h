@@ -15,15 +15,15 @@
  * grid  = nunmber of orientations
  */
 __global__
-void ext_desc_igrid( popsift::Extremum*     extrema,
-                     popsift::Descriptor*   descs,
-                     int*                   feat_to_ext_map,
-                     cudaTextureObject_t    texLinear );
+void ext_desc_notile( popsift::Extremum*     extrema,
+                      popsift::Descriptor*   descs,
+                      int*                   feat_to_ext_map,
+                      cudaTextureObject_t    texLinear );
 
 namespace popsift
 {
 
-inline static bool start_ext_desc_igrid( Octave& oct_obj )
+inline static bool start_ext_desc_notile( Octave& oct_obj )
 {
     dim3 block;
     dim3 grid;
@@ -34,10 +34,10 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj )
     if( grid.x == 0 ) return false;
 
     block.x = 16;
-    block.y = 4;
-    block.z = 4;
+    block.y = 1;
+    block.z = 1;
 
-    ext_desc_igrid
+    ext_desc_notile
         <<<grid,block,0,oct_obj.getStream()>>>
         ( oct_obj.getExtrema( ),
           oct_obj.getDescriptors( ),
@@ -48,7 +48,7 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj )
 }
 
 __device__ inline
-void start_ext_desc_igrid( int*                featvec_counter,
+void start_ext_desc_notile( int*                featvec_counter,
                            Extremum*           extrema,
                            Descriptor*         descs,
                            int*                feat_to_ext_map,
@@ -62,10 +62,10 @@ void start_ext_desc_igrid( int*                featvec_counter,
     if( grid.x == 0 ) return;
 
     block.x = 16;
-    block.y = 4;
-    block.z = 4;
+    block.y = 1;
+    block.z = 1;
 
-    ext_desc_igrid
+    ext_desc_notile
         <<<grid,block>>>
         ( extrema,
           descs,

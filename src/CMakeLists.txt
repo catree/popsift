@@ -18,6 +18,7 @@ CUDA_ADD_LIBRARY(popsift STATIC
 	popsift/s_desc_iloop.cu popsift/s_desc_iloop.h
 	popsift/s_desc_grid.cu popsift/s_desc_grid.h
 	popsift/s_desc_igrid.cu popsift/s_desc_igrid.h
+	popsift/s_desc_notile.cu popsift/s_desc_notile.h
 	popsift/s_desc_pl_grid.cu popsift/s_desc_pl_grid.h
 	popsift/s_desc_pl_igrid.cu popsift/s_desc_pl_igrid.h
 	popsift/s_desc_norm_rs.cu

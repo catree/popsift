@@ -54,55 +54,27 @@ void ext_desc_igrid_sub( const float         ang,
 
     float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    // const float2 rgt_up = make_float2(  cos_t - sin_t,  cos_t + sin_t );
-    // const float2 lft_up = make_float2( -cos_t - sin_t,  cos_t - sin_t );
-    // const float2 rgt_dn = make_float2(  cos_t + sin_t, -cos_t + sin_t );
     const float2 lft_dn = make_float2( -cos_t + sin_t, -cos_t - sin_t );
-    // const float2 rgt_stp = ( rgt_dn - lft_dn ) / 16.0f;
-    // const float2 up__stp = ( lft_up - lft_dn ) / 16.0f;
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
     const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
 
-#ifdef IGRID_XDIM_IS_32
-    int xd = ( threadIdx.x & 0x15 );
-    for( int yd=(threadIdx.x>>4); yd<16; yd+=2 )
-#else
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
-#endif
     {
         float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
         float2 pix  = pixo * SBP;
 
-        // avoiding to round positions is the biggest difference between IGrid and Grid
-        // pix = round( pt + pix ) - pt;
-        // pixo = pix / SBP;
-
         float mod;
         float th;
-#if 0
-        get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, texLinear, level );
-#else
         get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, cos_t, sin_t, texLinear, level );
-#endif
-
-        const float2 norm_pix = make_float2( ::fmaf( cos_t, pixo.x,  sin_t * pixo.y ),
-                                             ::fmaf( cos_t, pixo.y, -sin_t * pixo.x ) );
-
-        const float2 dn  = norm_pix + offset;
-        const float  ww  = expf( -scalbnf(dn.x*dn.x + dn.y*dn.y, -3)); // expf(-0.125f * (dnx*dnx + dny*dny));
-        const float2 w   = make_float2( 1.0f - fabsf(norm_pix.x),
-                                        1.0f - fabsf(norm_pix.y) );
-
-        if( w.x < 0.0f || w.y < 0.0f ) continue;
-
-        const float  wgt = ww * w.x * w.y * mod;
-
-#if 0
-        th -= ang;
-#endif
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
         th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
+
+        const float ww = d_consts.desc_gauss[iy*8+yd][ix*8+xd];
+        const float wx = d_consts.desc_tile[xd];
+        const float wy = d_consts.desc_tile[yd];
+
+        const float  wgt = ww * wx * wy * mod;
 
         const float tth  = __fmul_ru( th, M_4RPI ); // th * M_4RPI;
         const int   fo0  = (int)floorf(tth);
@@ -120,20 +92,11 @@ void ext_desc_igrid_sub( const float         ang,
 
     /* reduction here */
     for (int i = 0; i < 8; i++) {
-#ifdef IGRID_XDIM_IS_32
-        dpt[i] += __shfl_down( dpt[i], 16 );
-        dpt[i] += __shfl_down( dpt[i], 8 );
-        dpt[i] += __shfl_down( dpt[i], 4 );
-        dpt[i] += __shfl_down( dpt[i], 2 );
-        dpt[i] += __shfl_down( dpt[i], 1 );
-        dpt[i]  = __shfl     ( dpt[i], 0 );
-#else
         dpt[i] += __shfl_down( dpt[i], 8, 16 );
         dpt[i] += __shfl_down( dpt[i], 4, 16 );
         dpt[i] += __shfl_down( dpt[i], 2, 16 );
         dpt[i] += __shfl_down( dpt[i], 1, 16 );
         dpt[i]  = __shfl     ( dpt[i], 0, 16 );
-#endif
     }
 
     if( threadIdx.x < 8 ) {
