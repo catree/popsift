@@ -37,29 +37,17 @@ void ext_desc_notile_sub( const float                  x,
     }
     __syncthreads();
 
-    const float csbp  = cos_t * SBP;
-    const float ssbp  = sin_t * SBP;
-
-    const float2 offset = make_float2( ix - 1.5f, iy - 1.5f );
-
-    const float2 pt = make_float2( ::fmaf( csbp, offset.x, ::fmaf( -ssbp, offset.y, x ) ),
-                                   ::fmaf( csbp, offset.y, ::fmaf(  ssbp, offset.x, y ) ) );
-
-    // float dpt[8] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-
-    const float2 lft_dn = make_float2( -cos_t + sin_t, -cos_t - sin_t );
-    const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
-    const float2 up__stp = make_float2( -sin_t, cos_t ) / 8.0f;
-
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
     {
-        float2 pixo = lft_dn + (xd+0.5f) * rgt_stp + (yd+0.5f) * up__stp;
-        float2 pix  = pixo * SBP;
+        const float mvx = ix - 2.5f + (xd+0.5f)/8.0f;
+        const float mvy = iy - 2.5f + (yd+0.5f)/8.0f;
+        const float ptx  = ( cos_t * mvx - sin_t * mvy ) * SBP;
+        const float pty  = ( cos_t * mvy + sin_t * mvx ) * SBP;
 
         float mod;
         float th;
-        get_gradiant( mod, th, (pt+pix).x, (pt+pix).y, cos_t, sin_t, texLinear, level );
+        get_gradiant( mod, th, x + ptx, y + pty, cos_t, sin_t, texLinear, level );
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
         th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
 
@@ -69,7 +57,7 @@ void ext_desc_notile_sub( const float                  x,
 
         const float  wgt = ww * wx * wy * mod;
 
-        const float tth  = __fmul_ru( th, M_4RPI ); // th * M_4RPI;
+        const float tth  = th * M_4RPI;
         const int   fo   = (int)floorf(tth);
         const float do0  = tth - fo;
         const float wgt1 = 1.0f - do0;
