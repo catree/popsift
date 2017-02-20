@@ -40,13 +40,13 @@ void ext_desc_notile_sub( const float                  x,
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
     {
-        const float mvx = ix - 2.5f + (xd+0.5f)/8.0f;
-        const float mvy = iy - 2.5f + (yd+0.5f)/8.0f;
-        const float ptx  = ( cos_t * mvx - sin_t * mvy ) * SBP;
-        const float pty  = ( cos_t * mvy + sin_t * mvx ) * SBP;
+        const float mvx = -2.5f + (ix*8+xd)/8.0f + 1.0f/16.0f;
+        const float mvy = -2.5f + (iy*8+yd)/8.0f + 1.0f/16.0f;
 
         float mod;
         float th;
+        const float ptx  = ( cos_t * mvx - sin_t * mvy ) * SBP;
+        const float pty  = ( cos_t * mvy + sin_t * mvx ) * SBP;
         get_gradiant( mod, th, x + ptx, y + pty, cos_t, sin_t, texLinear, level );
         th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
         th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
