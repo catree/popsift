@@ -9,7 +9,7 @@
 #include "sift_constants.h"
 #include "gauss_filter.h"
 #include "common/debug_macros.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/clamp.h"
 
 #include <iostream>
@@ -45,14 +45,14 @@ void horiz( cudaTextureObject_t src_data,
     #pragma unroll
     for( int offset = span; offset>0; offset-- ) {
         const float& g  = filter[offset];
-        const float  v1 = tex2DLayered<float>( src_data, off_x - offset + 0.5f, blockIdx.y + 0.5f, src_level );
+        const float  v1 = readTex( src_data, off_x - offset, blockIdx.y, src_level );
         out += ( v1 * g );
 
-        const float  v2 = tex2DLayered<float>( src_data, off_x + offset + 0.5f, blockIdx.y + 0.5f, src_level );
+        const float  v2 = readTex( src_data, off_x + offset, blockIdx.y, src_level );
         out += ( v2 * g );
     }
     const float& g  = filter[0];
-    const float v3 = tex2DLayered<float>( src_data, off_x+0.5f, blockIdx.y+0.5f, src_level );
+    const float v3 = readTex( src_data, off_x, blockIdx.y, src_level );
     out += ( v3 * g );
 
     dst_data.ptr(blockIdx.y)[off_x] = out;
@@ -188,7 +188,7 @@ void get_by_2_interpolate( cudaTextureObject_t src_data,
     if( idx >= dst_w ) return;
     if( idy >= dst_h ) return;
 
-    const float val = tex2DLayered<float>( src_data, 2.0f * idx + 1.0f, 2.0f * idy + 1.0f, src_level );
+    const float val = readTex( src_data, 2.0f * idx + 1.0f, 2.0f * idy + 1.0f, src_level );
 
     surf2DLayeredwrite( val, dst_data, idx*4, idy, 0, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = val;
 }
@@ -211,7 +211,7 @@ void get_by_2_pick_every_second( cudaTextureObject_t src_data,
     const int read_x = clamp( idx << 1, 0, src_w );
     const int read_y = clamp( idy << 1, 0, src_h );
 
-    const float val = tex2DLayered<float>( src_data, read_x + 0.5f, read_y + 0.5f, src_level );
+    const float val = readTex( src_data, read_x, read_y, src_level );
 
     surf2DLayeredwrite( val, dst_data, idx*4, idy, 0, cudaBoundaryModeZero ); // dst_data.ptr(idy)[idx] = val;
 }
@@ -227,8 +227,8 @@ void make_dog( cudaTextureObject_t src_data,
     const int idy   = blockIdx.y * blockDim.y + threadIdx.y;
     const int level = blockIdx.z;
 
-    const float b = tex2DLayered<float>( src_data, idx + 0.5f, idy + 0.5f, level+1 );
-    const float a = tex2DLayered<float>( src_data, idx + 0.5f, idy + 0.5f, level );
+    const float b = readTex( src_data, idx, idy, level+1 );
+    const float a = readTex( src_data, idx, idy, level );
     const float c = b - a;
 
     surf2DLayeredwrite( c, dog_data, idx*4, idy, level, cudaBoundaryModeZero );

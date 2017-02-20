@@ -568,7 +568,11 @@ namespace popsift {
         dog_tex_desc.readMode = cudaReadModeElementType; // read as float
         dog_tex_desc.filterMode = cudaFilterModePoint; // no interpolation
 
-        err = cudaCreateTextureObject(&_dog_3d_tex, &dog_res_desc, &dog_tex_desc, 0);
+        err = cudaCreateTextureObject(&_dog_3d_tex_point, &dog_res_desc, &dog_tex_desc, 0);
+        POP_CUDA_FATAL_TEST(err, "Could not create DoG texture: ");
+
+        dog_tex_desc.filterMode = cudaFilterModeLinear; // linear interpolation
+        err = cudaCreateTextureObject(&_dog_3d_tex_linear, &dog_res_desc, &dog_tex_desc, 0);
         POP_CUDA_FATAL_TEST(err, "Could not create DoG texture: ");
     }
 
@@ -576,7 +580,10 @@ namespace popsift {
     {
         cudaError_t err;
 
-        err = cudaDestroyTextureObject(_dog_3d_tex);
+        err = cudaDestroyTextureObject(_dog_3d_tex_linear);
+        POP_CUDA_FATAL_TEST(err, "Could not destroy DoG texture: ");
+
+        err = cudaDestroyTextureObject(_dog_3d_tex_point);
         POP_CUDA_FATAL_TEST(err, "Could not destroy DoG texture: ");
 
         err = cudaDestroySurfaceObject(_dog_3d_surf);

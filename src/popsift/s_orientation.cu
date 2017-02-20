@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "assist.h"
+#include "common/assist.h"
 #include "sift_pyramid.h"
 #include "sift_constants.h"
 #include "s_gradiant.h"
@@ -24,6 +24,9 @@ using namespace std;
  * If you choose to undefine it, you get the smoothing approach taken by OpenCV
  */
 #define WITH_VLFEAT_SMOOTHING
+
+namespace popsift
+{
 
 __device__
 inline float compute_angle( int bin, float hc, float hn, float hp )
@@ -73,15 +76,19 @@ void ori_par( Extremum*           extremum,
 
     /* orientation histogram radius */
     float  sigw = ORI_WINFACTOR * sig;
-    int32_t rad  = (int)rintf((3.0f * sigw));
+    int32_t rad  = (int)roundf((3.0f * sigw));
 
     float factor = __fdividef( -0.5f, (sigw * sigw) );
     int sq_thres  = rad * rad;
 
-    int32_t xmin = max(1,     (int32_t)floor(x - rad));
-    int32_t xmax = min(w - 2, (int32_t)floor(x + rad));
-    int32_t ymin = max(1,     (int32_t)floor(y - rad));
-    int32_t ymax = min(h - 2, (int32_t)floor(y + rad));
+    // int32_t xmin = max(1,     (int32_t)floor(x - rad));
+    // int32_t xmax = min(w - 2, (int32_t)floor(x + rad));
+    // int32_t ymin = max(1,     (int32_t)floor(y - rad));
+    // int32_t ymax = min(h - 2, (int32_t)floor(y + rad));
+    int xmin = max(1,     (int)roundf(x) - rad);
+    int xmax = min(w - 2, (int)roundf(x) + rad);
+    int ymin = max(1,     (int)roundf(y) - rad);
+    int ymax = min(h - 2, (int)roundf(y) + rad);
 
     int wx = xmax - xmin + 1;
     int hy = ymax - ymin + 1;
@@ -109,8 +116,8 @@ void ori_par( Extremum*           extremum,
             if (sq_dist <= sq_thres) {
                 float weight = grad * expf(sq_dist * factor);
 
-                int bidx = (int)rintf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
-                // int bidx = (int)roundf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
+                // int bidx = (int)rintf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
+                int bidx = (int)roundf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
 
                 if( bidx > ORI_NBINS ) {
                     printf("Crashing: bin %d theta %f :-)\n", bidx, theta);
@@ -161,6 +168,7 @@ void ori_par( Extremum*           extremum,
 #endif // not WITH_VLFEAT_SMOOTHING
 
     // sub-cell refinement of the histogram cell index, yielding the angle
+    // not necessary to initialize, every cell is computed
     __shared__ float refined_angle[HEIGHT][64];
     __shared__ float yval         [HEIGHT][64];
 
@@ -170,14 +178,18 @@ void ori_par( Extremum*           extremum,
 
         bool predicate = ( bin < ORI_NBINS ) && ( sm_hist[threadIdx.y][bin] > max( sm_hist[threadIdx.y][prev], sm_hist[threadIdx.y][next] ) );
 
-        const float num  = predicate ? 3.0f *   sm_hist[threadIdx.y][prev] - 4.0f * sm_hist[threadIdx.y][bin] + sm_hist[threadIdx.y][next]   : 0.0f;
+        // const float num  = predicate ? 3.0f *   sm_hist[threadIdx.y][prev] - 4.0f * sm_hist[threadIdx.y][bin] + sm_hist[threadIdx.y][next]   : 0.0f;
+        const float num  = predicate ?   2.0f * sm_hist[threadIdx.y][prev]
+                                       - 4.0f * sm_hist[threadIdx.y][bin]
+                                       + 2.0f * sm_hist[threadIdx.y][next]
+                                     : 0.0f;
         const float denB = predicate ? 2.0f * ( sm_hist[threadIdx.y][prev] - 2.0f * sm_hist[threadIdx.y][bin] + sm_hist[threadIdx.y][next] ) : 1.0f;
 
-        const float newbin = __fdividef( num, denB );
+        const float newbin = __fdividef( num, denB ); // verified: accuracy OK
 
         predicate   = ( predicate && newbin >= 0.0f && newbin <= 2.0f );
 
-        refined_angle[threadIdx.y][bin] = predicate ? prev + newbin                               : -1;
+        refined_angle[threadIdx.y][bin] = predicate ? prev + newbin : -1;
         yval[threadIdx.y][bin]          = predicate ?  -(num*num) / (4.0f * denB) + sm_hist[threadIdx.y][prev] : -INFINITY;
     }
 
@@ -210,6 +222,8 @@ void ori_par( Extremum*           extremum,
         ext->num_ori = angles;
     }
 }
+
+}; // namespace popsift
 
 class ExtremaRead
 {

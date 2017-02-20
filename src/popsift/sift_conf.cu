@@ -72,6 +72,8 @@ void Config::setDescMode( const std::string& text )
         setDescMode( Config::Grid );
     else if( text == "igrid" )
         setDescMode( Config::IGrid );
+    else if( text == "notile" )
+        setDescMode( Config::NoTile );
     else if( text == "plgrid" )
         setDescMode( Config::PLGrid );
     else if( text == "pligrid" )

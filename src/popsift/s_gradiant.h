@@ -11,8 +11,11 @@
 #include <inttypes.h>
 
 #include "common/plane_2d.h"
+#include "common/assist.h"
 #include "sift_constants.h"
 
+namespace popsift
+{
 /*
  * We are wasting time by computing gradiants on demand several
  * times. We could precompute gradiants for all pixels once, as
@@ -45,6 +48,10 @@ void get_gradiant( float& grad,
     }
 }
 
+/* get_gradiant() works for both point texture and linear interpolation
+ * textures. The reason is that readTex must add 0.5 for coordinates in
+ * both cases to access the expected pixel.
+ */
 __device__ static inline
 void get_gradiant( float&              grad,
                    float&              theta,
@@ -53,96 +60,31 @@ void get_gradiant( float&              grad,
                    cudaTextureObject_t layer,
                    const int           level )
 {
-    grad  = 0.0f;
-    theta = 0.0f;
-    float dx = tex2DLayered<float>( layer, x+1.0f+0.5f, y+0.5f, level ) - tex2DLayered<float>( layer, x-1.0f+0.5f, y+0.5f, level );
-    float dy = tex2DLayered<float>( layer, x+0.5f, y+1.0f+0.5f, level ) - tex2DLayered<float>( layer, x+0.5f, y-1.0f+0.5f, level );
+    float dx = readTex( layer, x+1.0f, y, level )
+             - readTex( layer, x-1.0f, y, level );
+    float dy = readTex( layer, x, y+1.0f, level )
+             - readTex( layer, x, y-1.0f, level );
     grad     = hypotf( dx, dy ); // __fsqrt_rz(dx*dx + dy*dy);
     theta    = atan2f(dy, dx);
 }
 
-// float2 x=grad, y=theta
 __device__ static inline
-float2 get_gradiant( int x,
-                     int y,
-                     popsift::Plane2D_float& layer )
+void get_gradiant( float&              grad,
+                   float&              theta,
+                   float               x,
+                   float               y,
+                   float               cos_t,
+                   float               sin_t,
+                   cudaTextureObject_t texLinear,
+                   int                 level )
 {
-    if( x > 0 && x < layer.getCols()-1 && y > 0 && y < layer.getRows()-1 ) {
-        float dx = layer.ptr(y)[x+1] - layer.ptr(y)[x-1];
-        float dy = layer.ptr(y+1)[x] - layer.ptr(y-1)[x];
-        return make_float2( hypotf( dx, dy ), // __fsqrt_rz(dx*dx + dy*dy);
-                            atan2f(dy, dx) );
-    }
-    return make_float2( 0.0f, 0.0f );
-}
-
-/* The texture-based get_gradiant functions make only sense with a texture in
- * filter mode cudaFilterModePoint
- */
-#if 0
-__device__ static inline
-float gradiant_fetch( cudaTextureObject_t layer, int x, int y )
-{
-    return tex2D<float>( layer, x+0.5f, y+0.5f );
-}
-
-__device__ static inline
-void get_gradiant( float& grad,
-                   float& theta,
-                   int    x,
-                   int    y,
-                   cudaTextureObject_t layer )
-{
-    float dx = gradiant_fetch( layer, x+1, y ) - gradiant_fetch( layer, x-1, y );
-    float dy = gradiant_fetch( layer, x, y+1 ) - gradiant_fetch( layer, x, y-1 );
+    float dx = readTex( texLinear, x+cos_t, y+sin_t, level )
+             - readTex( texLinear, x-cos_t, y-sin_t, level );
+    float dy = readTex( texLinear, x-sin_t, y+cos_t, level )
+             - readTex( texLinear, x+sin_t, y-cos_t, level );
     grad     = hypotf( dx, dy );
-    theta    = atan2f(dy, dx);
+    theta    = atan2f( dy, dx );
 }
 
-__device__ static inline
-float2 get_gradiant( int x,
-                     int y,
-                     cudaTextureObject_t layer )
-{
-    float dx = gradiant_fetch( layer, x+1, y ) - gradiant_fetch( layer, x-1, y );
-    float dy = gradiant_fetch( layer, x, y+1 ) - gradiant_fetch( layer, x, y-1 );
-    return make_float2( hypotf( dx, dy ),
-                        atan2f(dy, dx) );
-}
-#endif
-
-/* The float_get_gradiant functions make only sense with a texture in
- * filter mode cudaFilterModeLinear
- */
-__device__ static inline
-float float_gradiant_fetch( cudaTextureObject_t texLinear, float x, float y, int level )
-{
-    return tex2DLayered<float>( texLinear, x, y, level );
-}
-
-__device__ static inline
-void float_get_gradiant( float& grad,
-                         float& theta,
-                         float    x,
-                         float    y,
-                         cudaTextureObject_t texLinear,
-                         int                 level )
-{
-    float dx = float_gradiant_fetch( texLinear, x+1.0f, y, level ) - float_gradiant_fetch( texLinear, x-1.0f, y, level );
-    float dy = float_gradiant_fetch( texLinear, x, y+1.0f, level ) - float_gradiant_fetch( texLinear, x, y-1.0f, level );
-    grad     = hypotf( dx, dy );
-    theta    = atan2f(dy, dx);
-}
-
-__device__ static inline
-float2 float_get_gradiant( float x,
-                           float y,
-                           cudaTextureObject_t texLinear,
-                           int                 level )
-{
-    float dx = float_gradiant_fetch( texLinear, x+1.0f, y, level ) - float_gradiant_fetch( texLinear, x-1.0f, y, level );
-    float dy = float_gradiant_fetch( texLinear, x, y+1.0f, level ) - float_gradiant_fetch( texLinear, x, y-1.0f, level );
-    return make_float2( hypotf( dx, dy ),
-                        atan2f(dy, dx) );
-}
+}; // namespace popsift
 

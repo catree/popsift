@@ -18,6 +18,7 @@ CUDA_ADD_LIBRARY(popsift STATIC
 	popsift/s_desc_iloop.cu popsift/s_desc_iloop.h
 	popsift/s_desc_grid.cu popsift/s_desc_grid.h
 	popsift/s_desc_igrid.cu popsift/s_desc_igrid.h
+	popsift/s_desc_notile.cu popsift/s_desc_notile.h
 	popsift/s_desc_pl_grid.cu popsift/s_desc_pl_grid.h
 	popsift/s_desc_pl_igrid.cu popsift/s_desc_pl_igrid.h
 	popsift/s_desc_norm_rs.cu
@@ -25,8 +26,8 @@ CUDA_ADD_LIBRARY(popsift STATIC
 	popsift/s_desc_normalize.h
 	popsift/s_gradiant.h
 	popsift/s_solve.h
-	popsift/assist.cu popsift/assist.h
-	popsift/clamp.h
+	popsift/common/assist.cu popsift/common/assist.h
+	popsift/common/clamp.h
 	popsift/common/plane_2d.cu popsift/common/plane_2d.h
 	popsift/common/write_plane_2d.cu popsift/common/write_plane_2d.h
 	popsift/common/debug_macros.cpp popsift/common/debug_macros.h

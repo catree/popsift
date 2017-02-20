@@ -11,7 +11,7 @@
 #include "sift_constants.h"
 #include "s_gradiant.h"
 #include "s_desc_pl_igrid.h"
-#include "assist.h"
+#include "common/assist.h"
 #include "common/vec_macros.h"
 
 using namespace popsift;
@@ -54,12 +54,12 @@ void ext_desc_pl_load_igrid( float2              gradcache[40][40],
             // pix = round( pt + pix ) - pt;
             // pixo = pix / SBP;
 
-            float_get_gradiant( gradcache[yd][xd].x,
-                                gradcache[yd][xd].y,
-                                (pt+pix).x,
-                                (pt+pix).y,
-                                layer_tex,
-                                level );
+            get_gradiant( gradcache[yd][xd].x,
+                          gradcache[yd][xd].y,
+                          (pt+pix).x,
+                          (pt+pix).y,
+                          layer_tex,
+                          level );
         }
 
         ::__any(yd<40); // fake a barrier for a single warp only

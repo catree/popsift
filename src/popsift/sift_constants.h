@@ -56,6 +56,8 @@ struct ConstInfo
     float edge_limit;
     float threshold;
     int   norm_multi;
+    float desc_gauss[40][40];
+    float desc_tile[16];
 };
 
 extern                         ConstInfo h_consts;

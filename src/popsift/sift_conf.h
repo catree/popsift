@@ -14,6 +14,8 @@
 #define MAX_OCTAVES   20
 #define MAX_LEVELS    10
 
+#define USE_DOG_TEX_LINEAR
+
 namespace popsift
 {
 
@@ -51,6 +53,7 @@ struct Config
         ILoop,       // scan horizontal, extract valid points, interpolate with tex engine
         Grid,        // scan in rotated mode, round pixel address
         IGrid,       // scan in rotated mode, interpolate with tex engine
+        NoTile,      // variant of IGrid, no duplicate gradiant fetching
         PLGrid,      // preload gradiants, else like Grid
         PLIGrid      // preload gradiants, else like IGrid
     };
