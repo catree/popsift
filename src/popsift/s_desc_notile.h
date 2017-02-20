@@ -34,8 +34,8 @@ inline static bool start_ext_desc_notile( Octave& oct_obj )
     if( grid.x == 0 ) return false;
 
     block.x = 16;
-    block.y = 1;
-    block.z = 1;
+    block.y = 4;
+    block.z = 4;
 
     ext_desc_notile
         <<<grid,block,0,oct_obj.getStream()>>>
@@ -62,8 +62,8 @@ void start_ext_desc_notile( int*                featvec_counter,
     if( grid.x == 0 ) return;
 
     block.x = 16;
-    block.y = 1;
-    block.z = 1;
+    block.y = 4;
+    block.z = 4;
 
     ext_desc_notile
         <<<grid,block>>>
