@@ -76,7 +76,6 @@ void ext_desc_notile_sub( const float                  x,
     memset( dpt, 0, 128*sizeof(float) );
 
     const int xd = threadIdx.x % 8;
-    // const int yd = threadIdx.y * 4 + ( threadIdx.x / 8 );
     for( int ix=0; ix<5; ix++ ) {
         for( int iy=0; iy<5; iy++ ) {
             for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
@@ -106,30 +105,21 @@ void ext_desc_notile_sub( const float                  x,
         dpt[i] = d;
     }
 
-#if 0
-    __shared__ float push_dpt[128];
-    if( threadIdx.y == 1 ) {
-        for( int i=threadIdx.x; i<128; i+=32 )
-            push_dpt[i] = dpt[i];
-    }
-    __syncthreads();
-#endif
-
-    if( threadIdx.y == 0 ) {
-        for( int i=threadIdx.x; i<128; i+=32 ) {
-            // features[i] = dpt[i] + push_dpt[i];
-            features[i] = dpt[i];
-        }
+    for( int i=threadIdx.x; i<128; i+=32 ) {
+        features[i] = dpt[i];
     }
 }
 
 __global__
 void ext_desc_notile( Extremum*           extrema,
+                      const int           num,
                       Descriptor*         descs,
                       int*                feat_to_ext_map,
                       cudaTextureObject_t texLinear )
 {
-    const int   offset   = blockIdx.x;
+    const int   offset   = blockIdx.x * blockDim.z + threadIdx.z;
+    if( offset >= num ) return;
+
     Descriptor* desc     = &descs[offset];
     const int   ext_idx  = feat_to_ext_map[offset];
     Extremum*   ext      = &extrema[ext_idx];

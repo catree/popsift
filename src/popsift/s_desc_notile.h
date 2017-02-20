@@ -16,6 +16,7 @@
  */
 __global__
 void ext_desc_notile( popsift::Extremum*     extrema,
+                      const int              num,
                       popsift::Descriptor*   descs,
                       int*                   feat_to_ext_map,
                       cudaTextureObject_t    texLinear );
@@ -23,11 +24,13 @@ void ext_desc_notile( popsift::Extremum*     extrema,
 namespace popsift
 {
 
+#define NUMLINES 8
+
 inline static bool start_ext_desc_notile( Octave& oct_obj )
 {
     dim3 block;
     dim3 grid;
-    grid.x = oct_obj.getFeatVecCountH( );
+    grid.x = grid_divide( oct_obj.getFeatVecCountH( ), NUMLINES );
     grid.y = 1;
     grid.z = 1;
 
@@ -35,11 +38,12 @@ inline static bool start_ext_desc_notile( Octave& oct_obj )
 
     block.x = 32;
     block.y = 1;
-    block.z = 1;
+    block.z = NUMLINES;
 
     ext_desc_notile
         <<<grid,block,0,oct_obj.getStream()>>>
         ( oct_obj.getExtrema( ),
+          oct_obj.getFeatVecCountH( ),
           oct_obj.getDescriptors( ),
           oct_obj.getFeatToExtMapD( ),
           oct_obj.getDataTexLinear( ) );
@@ -57,17 +61,18 @@ void start_ext_desc_notile( int*                featvec_counter,
 #if __CUDA_ARCH__ > 350
     dim3 block;
     dim3 grid;
-    grid.x  = *featvec_counter;
+    grid.x  = grid_divide( *featvec_counter, NUMLINES );
 
     if( grid.x == 0 ) return;
 
     block.x = 32;
     block.y = 1;
-    block.z = 1;
+    block.z = NUMLINES;
 
     ext_desc_notile
         <<<grid,block>>>
         ( extrema,
+          *featvec_counter,
           descs,
           feat_to_ext_map,
           texLinear );
