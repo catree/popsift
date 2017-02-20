@@ -70,17 +70,19 @@ void ext_desc_notile_sub( const float                  x,
                           float* __restrict__          features,
                           cudaTextureObject_t          texLinear )
 {
-    const int ix   = threadIdx.y;
-    const int iy   = threadIdx.z;
-
     __shared__ float dpt[128];
-    if( threadIdx.z < 2 ) {
-        dpt[threadIdx.z * 64 + threadIdx.y * 16 + threadIdx.x] = 0.0f;
+
+    const int base = threadIdx.y * 8 + threadIdx.x;
+    const int step = 8 * 8;
+    for( int i=base; i<128; i+=step ) {
+        dpt[i] = 0.0f;
     }
     __syncthreads();
 
-    int xd = threadIdx.x;
-    for( int yd=0; yd<16; yd++ )
+    for( int xd = threadIdx.x; xd<16; xd+= 8 )
+    for( int yd = threadIdx.y; yd<16; yd+= 8 )
+    for( int ix=0; ix<4; ix++ )
+    for( int iy=0; iy<4; iy++ )
     {
         const int offx = ix*8+xd;
         const int offy = iy*8+yd;
@@ -96,9 +98,8 @@ void ext_desc_notile_sub( const float                  x,
         __syncthreads();
     }
 
-    if( threadIdx.z < 2 ) {
-        const int idx = threadIdx.z * 64 + threadIdx.y * 16 + threadIdx.x;
-        features[idx] = dpt[idx];
+    for( int i=base; i<128; i+=step ) {
+        features[i] = dpt[i];
     }
 }
 
