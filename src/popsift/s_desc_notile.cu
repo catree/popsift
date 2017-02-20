@@ -17,15 +17,15 @@
 using namespace popsift;
 
 __device__ static inline
-void ext_desc_notile_sub( const float x,
-                          const float y,
-                          const int   level,
-                          const float cos_t,
-                          const float sin_t,
-                          const float SBP,
-                          const Extremum*     ext,
-                          float* __restrict__ features,
-                          cudaTextureObject_t texLinear )
+void ext_desc_notile_sub( const float                  x,
+                          const float                  y,
+                          const int                    level,
+                          const float                  cos_t,
+                          const float                  sin_t,
+                          const float                  SBP,
+                          const Extremum* __restrict__ ext,
+                          float* __restrict__          features,
+                          cudaTextureObject_t          texLinear )
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
@@ -43,7 +43,7 @@ void ext_desc_notile_sub( const float x,
     const float2 pt = make_float2( ::fmaf( csbp, offset.x, ::fmaf( -ssbp, offset.y, x ) ),
                                    ::fmaf( csbp, offset.y, ::fmaf(  ssbp, offset.x, y ) ) );
 
-    float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     const float2 lft_dn = make_float2( -cos_t + sin_t, -cos_t - sin_t );
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
@@ -68,18 +68,17 @@ void ext_desc_notile_sub( const float x,
         const float  wgt = ww * wx * wy * mod;
 
         const float tth  = __fmul_ru( th, M_4RPI ); // th * M_4RPI;
-        const int   fo0  = (int)floorf(tth);
-        const float do0  = tth - fo0;             
+        const int   fo   = (int)floorf(tth);
+        const float do0  = tth - fo;
         const float wgt1 = 1.0f - do0;
         const float wgt2 = do0;
 
-        int fo  = fo0 % DESC_BINS;
-        dpt[fo]   = __fmaf_ru( wgt1, wgt, dpt[fo] );   // dpt[fo]   += (wgt1*wgt);
-        dpt[fo+1] = __fmaf_ru( wgt2, wgt, dpt[fo+1] ); // dpt[fo+1] += (wgt2*wgt);
+        int fo0  =   fo       % 8;
+        int fo1  = ( fo + 1 ) % 8;
+        dpt[fo0] = dpt[fo0] + wgt * wgt1;
+        dpt[fo1] = dpt[fo1] + wgt * wgt2;
     }
     __syncthreads();
-
-    dpt[0] += dpt[8];
 
     /* reduction here */
     for (int i = 0; i < 8; i++) {
@@ -97,9 +96,9 @@ void ext_desc_notile_sub( const float x,
 
 __global__
 void ext_desc_notile( Extremum*           extrema,
-                    Descriptor*         descs,
-                    int*                feat_to_ext_map,
-                    cudaTextureObject_t texLinear )
+                      Descriptor*         descs,
+                      int*                feat_to_ext_map,
+                      cudaTextureObject_t texLinear )
 {
     const int   offset   = blockIdx.x;
     Descriptor* desc     = &descs[offset];

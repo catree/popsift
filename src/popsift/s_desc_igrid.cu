@@ -83,8 +83,11 @@ void ext_desc_igrid_sub( const float         ang,
         const float wgt2 = do0;
 
         int fo  = fo0 % DESC_BINS;
-        dpt[fo]   = __fmaf_ru( wgt1, wgt, dpt[fo] );   // dpt[fo]   += (wgt1*wgt);
-        dpt[fo+1] = __fmaf_ru( wgt2, wgt, dpt[fo+1] ); // dpt[fo+1] += (wgt2*wgt);
+        // dpt[fo]   = __fmaf_ru( wgt1, wgt, dpt[fo] );   // dpt[fo]   += (wgt1*wgt);
+        // dpt[fo+1] = __fmaf_ru( wgt2, wgt, dpt[fo+1] ); // dpt[fo+1] += (wgt2*wgt);
+
+        dpt[fo]   = dpt[fo]   + wgt * wgt1; 
+        dpt[fo+1] = dpt[fo+1] + wgt * wgt2; 
     }
     __syncthreads();
 
