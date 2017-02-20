@@ -17,6 +17,28 @@
 using namespace popsift;
 
 __device__ static inline
+void ext_desc_get_grad( const float                  x,
+                        const float                  y,
+                        const int                    level,
+                        cudaTextureObject_t          texLinear,
+                        const float                  cos_t,
+                        const float                  sin_t,
+                        const float                  SBP,
+                        const int                    offx,
+                        const int                    offy,
+                        float&                       mod,
+                        float&                       th )
+{
+    const float mvx = -2.5f + offx/8.0f + 1.0f/16.0f;
+    const float mvy = -2.5f + offy/8.0f + 1.0f/16.0f;
+    const float ptx  = ( cos_t * mvx - sin_t * mvy ) * SBP;
+    const float pty  = ( cos_t * mvy + sin_t * mvx ) * SBP;
+    get_gradiant( mod, th, x + ptx, y + pty, cos_t, sin_t, texLinear, level );
+    th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
+    th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
+}
+
+__device__ static inline
 void ext_desc_notile_sub( const float                  x,
                           const float                  y,
                           const int                    level,
@@ -29,7 +51,6 @@ void ext_desc_notile_sub( const float                  x,
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
-    const int tile = ( iy << 2 ) + ix;
 
     __shared__ float dpt[128];
     if( threadIdx.z < 2 ) {
@@ -40,18 +61,14 @@ void ext_desc_notile_sub( const float                  x,
     int xd = threadIdx.x;
     for( int yd=0; yd<16; yd++ )
     {
-        const float mvx = -2.5f + (ix*8+xd)/8.0f + 1.0f/16.0f;
-        const float mvy = -2.5f + (iy*8+yd)/8.0f + 1.0f/16.0f;
+        const int offx = ix*8+xd;
+        const int offy = iy*8+yd;
 
         float mod;
         float th;
-        const float ptx  = ( cos_t * mvx - sin_t * mvy ) * SBP;
-        const float pty  = ( cos_t * mvy + sin_t * mvx ) * SBP;
-        get_gradiant( mod, th, x + ptx, y + pty, cos_t, sin_t, texLinear, level );
-        th += ( th <  0.0f  ? M_PI2 : 0.0f ); //  if (th <  0.0f ) th += M_PI2;
-        th -= ( th >= M_PI2 ? M_PI2 : 0.0f ); //  if (th >= M_PI2) th -= M_PI2;
+        ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
 
-        const float ww = d_consts.desc_gauss[iy*8+yd][ix*8+xd];
+        const float ww = d_consts.desc_gauss[offy][offx];
         const float wx = d_consts.desc_tile[xd];
         const float wy = d_consts.desc_tile[yd];
 
@@ -63,8 +80,9 @@ void ext_desc_notile_sub( const float                  x,
         const float wgt1 = 1.0f - do0;
         const float wgt2 = do0;
 
-        int fo0  =   fo       % 8;
-        int fo1  = ( fo + 1 ) % 8;
+        const int tile = ( iy << 2 ) + ix;
+        const int fo0  =   fo       % 8;
+        const int fo1  = ( fo + 1 ) % 8;
         atomicAdd( &dpt[tile*8+fo0], wgt * wgt1 );
         atomicAdd( &dpt[tile*8+fo1], wgt * wgt2 );
         __syncthreads();
