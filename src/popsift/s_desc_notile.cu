@@ -29,21 +29,23 @@ void ext_desc_notile_sub( const float                  x,
 {
     const int ix   = threadIdx.y;
     const int iy   = threadIdx.z;
-    const int tile = ( ( ( iy << 2 ) + ix ) << 3 ); // base of the 8 floats written by this group of 16 threads
+    const int tile = ( iy << 2 ) + ix;
+
+    __shared__ float dpt[128];
+    if( threadIdx.z < 2 ) {
+        dpt[threadIdx.z * 64 + threadIdx.y * 16 + threadIdx.x] = 0.0f;
+    }
+    __syncthreads();
 
     const float csbp  = cos_t * SBP;
     const float ssbp  = sin_t * SBP;
 
     const float2 offset = make_float2( ix - 1.5f, iy - 1.5f );
 
-    // const float ptx = csbp * offsetptx - ssbp * offsetpty + x;
-    // const float pty = csbp * offsetpty + ssbp * offsetptx + y;
-    // const float ptx = ::fmaf( csbp, offsetptx, ::fmaf( -ssbp, offsetpty, x ) );
-    // const float pty = ::fmaf( csbp, offsetpty, ::fmaf(  ssbp, offsetptx, y ) );
     const float2 pt = make_float2( ::fmaf( csbp, offset.x, ::fmaf( -ssbp, offset.y, x ) ),
                                    ::fmaf( csbp, offset.y, ::fmaf(  ssbp, offset.x, y ) ) );
 
-    float dpt[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    // float dpt[8] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
     const float2 lft_dn = make_float2( -cos_t + sin_t, -cos_t - sin_t );
     const float2 rgt_stp = make_float2(  cos_t, sin_t ) / 8.0f;
@@ -75,22 +77,14 @@ void ext_desc_notile_sub( const float                  x,
 
         int fo0  =   fo       % 8;
         int fo1  = ( fo + 1 ) % 8;
-        dpt[fo0] = dpt[fo0] + wgt * wgt1;
-        dpt[fo1] = dpt[fo1] + wgt * wgt2;
-    }
-    __syncthreads();
-
-    /* reduction here */
-    for (int i = 0; i < 8; i++) {
-        dpt[i] += __shfl_down( dpt[i], 8, 16 );
-        dpt[i] += __shfl_down( dpt[i], 4, 16 );
-        dpt[i] += __shfl_down( dpt[i], 2, 16 );
-        dpt[i] += __shfl_down( dpt[i], 1, 16 );
-        dpt[i]  = __shfl     ( dpt[i], 0, 16 );
+        atomicAdd( &dpt[tile*8+fo0], wgt * wgt1 );
+        atomicAdd( &dpt[tile*8+fo1], wgt * wgt2 );
+        __syncthreads();
     }
 
-    if( threadIdx.x < 8 ) {
-        features[tile+threadIdx.x] = dpt[threadIdx.x];
+    if( threadIdx.z < 2 ) {
+        const int idx = threadIdx.z * 64 + threadIdx.y * 16 + threadIdx.x;
+        features[idx] = dpt[idx];
     }
 }
 
