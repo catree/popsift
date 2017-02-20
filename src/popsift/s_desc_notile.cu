@@ -41,6 +41,8 @@ void ext_desc_get_grad( const float                  x,
 __device__ static inline
 void ext_desc_inc_tile( float* dpt, const int ix, const int iy, const int xd, const int yd, const float th, const float mod, const float ww )
 {
+    if( ix < 0 || iy < 0 || ix > 3 || iy > 3 ) return;
+
     const float wx = d_consts.desc_tile[xd];
     const float wy = d_consts.desc_tile[yd];
 
@@ -55,8 +57,8 @@ void ext_desc_inc_tile( float* dpt, const int ix, const int iy, const int xd, co
     const int tile = ( iy << 2 ) + ix;
     const int fo0  =   fo       % 8;
     const int fo1  = ( fo + 1 ) % 8;
-    atomicAdd( &dpt[tile*8+fo0], wgt * wgt1 );
-    atomicAdd( &dpt[tile*8+fo1], wgt * wgt2 );
+    dpt[tile*8+fo0] += ( wgt * wgt1 );
+    dpt[tile*8+fo1] += ( wgt * wgt2 );
 }
 
 __device__ static inline
@@ -70,35 +72,54 @@ void ext_desc_notile_sub( const float                  x,
                           float* __restrict__          features,
                           cudaTextureObject_t          texLinear )
 {
-    __shared__ float dpt[128];
+    float dpt[128];
+    memset( dpt, 0, 128*sizeof(float) );
 
-    const int base = threadIdx.y * 8 + threadIdx.x;
-    const int step = 8 * 8;
-    for( int i=base; i<128; i+=step ) {
-        dpt[i] = 0.0f;
-    }
-    __syncthreads();
-
-    const int xd = threadIdx.x;
-    const int yd = threadIdx.y;
-
+    const int xd = threadIdx.x % 8;
+    // const int yd = threadIdx.y * 4 + ( threadIdx.x / 8 );
     for( int ix=0; ix<5; ix++ ) {
         for( int iy=0; iy<5; iy++ ) {
-            const int offx = ix*8+xd;
-            const int offy = iy*8+yd;
-            float mod, th;
-            ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
-            if( ix>0 && iy>0 ) ext_desc_inc_tile( dpt, ix-1, iy-1, xd+8, yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
-            if( ix>0 && iy<4 ) ext_desc_inc_tile( dpt, ix-1, iy,   xd+8, yd,   th, mod, d_consts.desc_gauss[offy][offx] );
-            if( ix<4 && iy>0 ) ext_desc_inc_tile( dpt, ix,   iy-1, xd,   yd+8, th, mod, d_consts.desc_gauss[offy][offx] );
-            if( ix<4 && iy<4 ) ext_desc_inc_tile( dpt, ix,   iy,   xd,   yd,   th, mod, d_consts.desc_gauss[offy][offx] );
+            for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
+                const int offx = ix*8+xd;
+                const int offy = iy*8+yd;
+                float mod, th;
+                ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+                float ww = d_consts.desc_gauss[offy][offx];
+                ext_desc_inc_tile( dpt, ix-1, iy-1, xd+8, yd+8, th, mod, ww );
+                ext_desc_inc_tile( dpt, ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt, ix,   iy-1, xd,   yd+8, th, mod, ww );
+                ext_desc_inc_tile( dpt, ix,   iy,   xd,   yd,   th, mod, ww );
+            }
         }
     }
 
     __syncthreads();
 
-    for( int i=base; i<128; i+=step ) {
-        features[i] = dpt[i];
+    for( int i=0; i<128; i++ ) {
+        float d = dpt[i];
+        d += __shfl_down( d, 16, 32 );
+        d += __shfl_down( d,  8, 32 );
+        d += __shfl_down( d,  4, 32 );
+        d += __shfl_down( d,  2, 32 );
+        d += __shfl_down( d,  1, 32 );
+        d  = __shfl     ( d, 32 );
+        dpt[i] = d;
+    }
+
+#if 0
+    __shared__ float push_dpt[128];
+    if( threadIdx.y == 1 ) {
+        for( int i=threadIdx.x; i<128; i+=32 )
+            push_dpt[i] = dpt[i];
+    }
+    __syncthreads();
+#endif
+
+    if( threadIdx.y == 0 ) {
+        for( int i=threadIdx.x; i<128; i+=32 ) {
+            // features[i] = dpt[i] + push_dpt[i];
+            features[i] = dpt[i];
+        }
     }
 }
 
