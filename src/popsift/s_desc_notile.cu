@@ -39,6 +39,27 @@ void ext_desc_get_grad( const float                  x,
 }
 
 __device__ static inline
+void ext_desc_inc_tile( float* dpt, const int ix, const int iy, const int xd, const int yd, const float th, const float mod, const float ww )
+{
+    const float wx = d_consts.desc_tile[xd];
+    const float wy = d_consts.desc_tile[yd];
+
+    const float  wgt = ww * wx * wy * mod;
+
+    const float tth  = th * M_4RPI;
+    const int   fo   = (int)floorf(tth);
+    const float do0  = tth - fo;
+    const float wgt1 = 1.0f - do0;
+    const float wgt2 = do0;
+
+    const int tile = ( iy << 2 ) + ix;
+    const int fo0  =   fo       % 8;
+    const int fo1  = ( fo + 1 ) % 8;
+    atomicAdd( &dpt[tile*8+fo0], wgt * wgt1 );
+    atomicAdd( &dpt[tile*8+fo1], wgt * wgt2 );
+}
+
+__device__ static inline
 void ext_desc_notile_sub( const float                  x,
                           const float                  y,
                           const int                    level,
@@ -69,22 +90,9 @@ void ext_desc_notile_sub( const float                  x,
         ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
 
         const float ww = d_consts.desc_gauss[offy][offx];
-        const float wx = d_consts.desc_tile[xd];
-        const float wy = d_consts.desc_tile[yd];
 
-        const float  wgt = ww * wx * wy * mod;
+        ext_desc_inc_tile( dpt, ix, iy, xd, yd, th, mod, ww );
 
-        const float tth  = th * M_4RPI;
-        const int   fo   = (int)floorf(tth);
-        const float do0  = tth - fo;
-        const float wgt1 = 1.0f - do0;
-        const float wgt2 = do0;
-
-        const int tile = ( iy << 2 ) + ix;
-        const int fo0  =   fo       % 8;
-        const int fo1  = ( fo + 1 ) % 8;
-        atomicAdd( &dpt[tile*8+fo0], wgt * wgt1 );
-        atomicAdd( &dpt[tile*8+fo1], wgt * wgt2 );
         __syncthreads();
     }
 
