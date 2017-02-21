@@ -117,7 +117,7 @@ void ori_par( Extremum*           extremum,
                 float weight = grad * expf(sq_dist * factor);
 
                 // int bidx = (int)rintf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
-                int bidx = (int)roundf( __fdividef( ORI_NBINS * (theta + M_PI), M_PI2 ) );
+                int bidx = (int)roundf( __fdividef( float(ORI_NBINS) * (theta + M_PI), M_PI2 ) );
 
                 if( bidx > ORI_NBINS ) {
                     printf("Crashing: bin %d theta %f :-)\n", bidx, theta);

@@ -13,12 +13,18 @@
 #ifndef NINF
 #define NINF              (-INF)
 #endif
-#ifndef M_PI
-#define M_PI  3.1415926535897932384626433832F
+#ifdef M_PI
+#undef M_PI
+// #define M_PI  3.14159265358979323846f
 #endif
-#ifndef M_PI2
-#define M_PI2 (2.0F * M_PI)
+__device__ static const
+float M_PI = 3.14159265358979323846f;
+#ifdef M_PI2
+#undef M_PI2
+// #define M_PI2 (2.0F * M_PI)
 #endif
+__device__ static const
+float M_PI2 = 2.0f * 3.14159265358979323846f;
 
 #define M_4RPI               (4.0f / M_PI)
 
