@@ -75,10 +75,10 @@ void ext_desc_notile_sub( const float                  x,
     float dpt[128];
     memset( dpt, 0, 128*sizeof(float) );
 
-    const int xd = threadIdx.x % 8;
     for( int ix=0; ix<5; ix++ ) {
         for( int iy=0; iy<5; iy++ ) {
             for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
+                const int xd = threadIdx.x & (8-1);
                 const int offx = ix*8+xd;
                 const int offy = iy*8+yd;
                 float mod, th;
