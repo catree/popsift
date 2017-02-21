@@ -297,7 +297,7 @@ public:
 };
 
 template<int sift_mode>
-__device__
+__device__ inline
 bool find_extrema_in_dog_sub( cudaTextureObject_t dog,
                               int                 debug_octave,
                               int                 width,
