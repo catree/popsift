@@ -75,6 +75,8 @@ void ext_desc_notile_sub( const float                  x,
     float dpt[128];
     memset( dpt, 0, 128*sizeof(float) );
 
+    __shared__ float sdpt[128];
+
     for( int ix=0; ix<5; ix++ ) {
         for( int iy=0; iy<5; iy++ ) {
             for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
@@ -101,12 +103,14 @@ void ext_desc_notile_sub( const float                  x,
         d += __shfl_down( d,  4, 32 );
         d += __shfl_down( d,  2, 32 );
         d += __shfl_down( d,  1, 32 );
-        d  = __shfl     ( d, 32 );
-        dpt[i] = d;
+        if( threadIdx.x == 0 ) {
+            sdpt[i] = d;
+        }
+        __syncthreads();
     }
 
     for( int i=threadIdx.x; i<128; i+=32 ) {
-        features[i] = dpt[i];
+        features[i] = sdpt[i];
     }
 }
 
