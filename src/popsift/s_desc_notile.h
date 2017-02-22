@@ -24,7 +24,7 @@ void ext_desc_notile( popsift::Extremum*     extrema,
 namespace popsift
 {
 
-#define NUMLINES 1
+#define NUMLINES 2
 
 inline static bool start_ext_desc_notile( Octave& oct_obj )
 {
