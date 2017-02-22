@@ -71,14 +71,34 @@ void ext_desc_notile_sub( const float                  x,
                           float* __restrict__          features,
                           cudaTextureObject_t          texLinear )
 {
+    const int xd    = threadIdx.x & (8-1); // % 8
+    const int block = threadIdx.x / 8;
+
     float dpt[2][32];
 
     {
         int iy = 0;
         memset( dpt[0], 0, 32*sizeof(float) );
-        for( int ix=0; ix<5; ix++ ) {
-            for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
-                const int xd = threadIdx.x & (8-1);
+
+        for( int yd = 0; yd < 8; yd ++ )
+        {
+
+            if( block == 0 )
+            {
+                const int ix = 0;
+                const int offx = ix*8+xd;
+                const int offy = iy*8+yd;
+                float mod, th;
+                ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+                float ww = d_consts.desc_gauss[offy][offx];
+                int tile;
+
+                tile = ix;
+                ext_desc_inc_tile( &dpt[0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+            }
+
+            {
+                const int ix = block + 1;
                 const int offx = ix*8+xd;
                 const int offy = iy*8+yd;
                 float mod, th;
@@ -94,11 +114,31 @@ void ext_desc_notile_sub( const float                  x,
             }
         }
     }
-    for( int iy=1; iy<5; iy++ ) {
+    __syncthreads();
+    for( int iy=1; iy<5; iy++ )
+    {
         memset( dpt[iy&1?1:0], 0, 32*sizeof(float) );
-        for( int ix=0; ix<5; ix++ ) {
-            for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
-                const int xd = threadIdx.x & (8-1);
+        for( int yd = 0; yd<8; yd++ )
+        {
+            if( block == 0 )
+            {
+                const int ix = 0;
+                const int offx = ix*8+xd;
+                const int offy = iy*8+yd;
+                float mod, th;
+                ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
+                float ww = d_consts.desc_gauss[offy][offx];
+                int tile;
+
+                tile = ix;
+                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
+
+                tile = ix;
+                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+            }
+
+            {
+                const int ix = block + 1;
                 const int offx = ix*8+xd;
                 const int offy = iy*8+yd;
                 float mod, th;
