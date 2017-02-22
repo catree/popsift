@@ -74,14 +74,12 @@ void ext_desc_notile_sub( const float                  x,
     const int xd    = threadIdx.x & (8-1); // % 8 - xd 0..7
     const int block = threadIdx.x / 8;     //     - block 0..3
 
-    float dpt[2][4][8];
+    float dpt[2][2][8];
 
     {
         int iy = 0;
         memset( dpt[0][0], 0, 8*sizeof(float) );
         memset( dpt[0][1], 0, 8*sizeof(float) );
-        memset( dpt[0][2], 0, 8*sizeof(float) );
-        memset( dpt[0][3], 0, 8*sizeof(float) );
 
         for( int yd = 0; yd < 8; yd ++ )
         {
@@ -94,7 +92,7 @@ void ext_desc_notile_sub( const float                  x,
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
 
-                ext_desc_inc_tile( dpt[0][block], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[0][0], ix,   iy,   xd,   yd,   th, mod, ww );
             }
 
             {
@@ -105,8 +103,8 @@ void ext_desc_notile_sub( const float                  x,
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
 
-                ext_desc_inc_tile( dpt[0][block],   ix-1, iy,   xd+8, yd,   th, mod, ww );
-                ext_desc_inc_tile( dpt[0][block+1], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[0][0], ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[0][1], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
     }
@@ -118,8 +116,6 @@ void ext_desc_notile_sub( const float                  x,
     {
         memset( dpt[iy&1?1:0][0], 0, 8*sizeof(float) );
         memset( dpt[iy&1?1:0][1], 0, 8*sizeof(float) );
-        memset( dpt[iy&1?1:0][2], 0, 8*sizeof(float) );
-        memset( dpt[iy&1?1:0][3], 0, 8*sizeof(float) );
         for( int yd = 0; yd<8; yd++ )
         {
             if( block == 0 )
@@ -131,8 +127,8 @@ void ext_desc_notile_sub( const float                  x,
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
 
-                ext_desc_inc_tile( dpt[iy&1?0:1][block], ix,   iy-1, xd,   yd+8, th, mod, ww );
-                ext_desc_inc_tile( dpt[iy&1?1:0][block], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?0:1][0], ix,   iy-1, xd,   yd+8, th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?1:0][0], ix,   iy,   xd,   yd,   th, mod, ww );
             }
 
             {
@@ -143,10 +139,10 @@ void ext_desc_notile_sub( const float                  x,
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
 
-                ext_desc_inc_tile( dpt[iy&1?0:1][block],   ix-1, iy-1, xd+8, yd+8, th, mod, ww );
-                ext_desc_inc_tile( dpt[iy&1?0:1][block+1], ix,   iy-1, xd,   yd+8, th, mod, ww );
-                ext_desc_inc_tile( dpt[iy&1?1:0][block],   ix-1, iy,   xd+8, yd,   th, mod, ww );
-                ext_desc_inc_tile( dpt[iy&1?1:0][block+1], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?0:1][0], ix-1, iy-1, xd+8, yd+8, th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?0:1][1], ix,   iy-1, xd,   yd+8, th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?1:0][0], ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( dpt[iy&1?1:0][1], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
 
@@ -167,7 +163,9 @@ void ext_desc_notile_sub( const float                  x,
         for( int b=0; b<4; b++ )
         {
             for( int i=0; i<8; i++ ) {
-                float d = (b==block||b==block+1) ? dpt[iy&1?0:1][b][i] : 0;
+                float d = (b==block) ? dpt[iy&1?0:1][0][i]
+                                     : (b==block+1) ? dpt[iy&1?0:1][1][i]
+                                                    : 0;
                 d += __shfl_xor( d,  1 );
                 d += __shfl_xor( d,  2 );
                 d += __shfl_xor( d,  4 );
