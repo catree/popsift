@@ -149,6 +149,8 @@ void ext_desc_notile_sub( const float                  x,
 
         __syncthreads();
 
+        __shared__ float sdpt[4][8];
+
         for( int block=0; block<4; block++ ) {
             for( int i=0; i<8; i++ ) {
                 float d = dpt[iy&1?0:1][block][i];
@@ -157,13 +159,15 @@ void ext_desc_notile_sub( const float                  x,
                 d += __shfl_xor( d,  4 );
                 d += __shfl_xor( d,  8 );
                 d += __shfl_xor( d, 16 );
-                dpt[iy&1?0:1][block][i] = d;
+                if( threadIdx.x == 0 ) {
+                    sdpt[block][i] = d;
+                }
             }
         }
 
         __syncthreads();
 
-        features[(iy-1)*32+threadIdx.x] = dpt[iy&1?0:1][threadIdx.x/8][threadIdx.x%8];
+        features[(iy-1)*32+threadIdx.x] = sdpt[threadIdx.x/8][threadIdx.x%8];
     }
 }
 
