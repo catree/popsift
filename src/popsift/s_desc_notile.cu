@@ -54,8 +54,8 @@ void ext_desc_inc_tile( float* dpt, const int ix, const int iy, const int xd, co
     const float wgt1 = 1.0f - do0;
     const float wgt2 = do0;
 
-    const int fo0  =   fo       % 8;
-    const int fo1  = ( fo + 1 ) % 8;
+    const int fo0  =   fo       & (8-1); // % 8;
+    const int fo1  = ( fo + 1 ) & (8-1); // % 8;
     dpt[fo0] += ( wgt * wgt1 );
     dpt[fo1] += ( wgt * wgt2 );
 }
@@ -127,12 +127,11 @@ void ext_desc_notile_sub( const float                  x,
         for( int i=0; i<32; i++ ) {
             const int o = last_row * 8 + i;
             float d = dpt[o];
-            d += __shfl_down( d, 16, 32 );
-            d += __shfl_down( d,  8, 32 );
-            d += __shfl_down( d,  4, 32 );
-            d += __shfl_down( d,  2, 32 );
-            d += __shfl_down( d,  1, 32 );
-            d  = __shfl( d, 0 );
+            d += __shfl_xor( d,  1 );
+            d += __shfl_xor( d,  2 );
+            d += __shfl_xor( d,  4 );
+            d += __shfl_xor( d,  8 );
+            d += __shfl_xor( d, 16 );
             dpt[o] = d;
         }
 
