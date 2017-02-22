@@ -117,23 +117,24 @@ void ext_desc_notile_sub( const float                  x,
                 ext_desc_inc_tile( &dpt[tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
-    }
 
-    __syncthreads();
+        __syncthreads();
 
-    for( int i=0; i<128; i++ ) {
-        float d = dpt[i];
-        d += __shfl_down( d, 16, 32 );
-        d += __shfl_down( d,  8, 32 );
-        d += __shfl_down( d,  4, 32 );
-        d += __shfl_down( d,  2, 32 );
-        d += __shfl_down( d,  1, 32 );
-        d  = __shfl( d, 0 );
-        dpt[i] = d;
-    }
+        for( int i=0; i<32; i++ ) {
+            const int o = (iy-1)*32+i;
+            float d = dpt[o];
+            d += __shfl_down( d, 16, 32 );
+            d += __shfl_down( d,  8, 32 );
+            d += __shfl_down( d,  4, 32 );
+            d += __shfl_down( d,  2, 32 );
+            d += __shfl_down( d,  1, 32 );
+            d  = __shfl( d, 0 );
+            dpt[o] = d;
+        }
 
-    for( int i=threadIdx.x; i<128; i+=32 ) {
-        features[i] = dpt[i];
+        __syncthreads();
+
+        features[(iy-1)*32+threadIdx.x] = dpt[(iy-1)*32+threadIdx.x];
     }
 }
 
