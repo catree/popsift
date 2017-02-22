@@ -343,6 +343,13 @@ void Pyramid::descriptors( const Config& conf )
             grid.z = 1;
 
             if( grid.x != 0 ) {
+cudaEvent_t desc_start_ev;
+cudaEvent_t desc_stop_ev;
+if( octave < 2 ) {
+cudaEventCreate( &desc_start_ev );
+cudaEventCreate( &desc_stop_ev );
+cudaEventRecord( desc_start_ev, oct_obj.getStream() );
+}
                 if( conf.getDescMode() == Config::Loop ) {
                     start_ext_desc_loop( oct_obj );
                 } else if( conf.getDescMode() == Config::ILoop ) {
@@ -360,6 +367,15 @@ void Pyramid::descriptors( const Config& conf )
                 } else {
                     POP_FATAL( "not yet" );
                 }
+if( octave < 2 ) {
+float ms;
+cudaEventRecord( desc_stop_ev, oct_obj.getStream() );
+cudaEventSynchronize( desc_stop_ev );
+cudaEventElapsedTime( &ms, desc_start_ev, desc_stop_ev );
+cudaEventDestroy( desc_start_ev );
+cudaEventDestroy( desc_stop_ev );
+cerr << "Time for desc in octave " << octave << ": " << setprecision(6) << ms*1000.0f << "us" << endl;
+}
 
                 grid.x  = grid_divide( oct_obj.getFeatVecCountH( ), 32 );
                 block.x = 32;
