@@ -85,16 +85,14 @@ void ext_desc_notile_sub( const float                  x,
 
             if( block == 0 )
             {
-                const int ix = 0;
+                const int ix = block;
                 const int offx = ix*8+xd;
                 const int offy = iy*8+yd;
                 float mod, th;
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
-                int tile;
 
-                tile = ix;
-                ext_desc_inc_tile( &dpt[0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[0][block*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
 
             {
@@ -104,13 +102,9 @@ void ext_desc_notile_sub( const float                  x,
                 float mod, th;
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
-                int tile;
 
-                tile = ix-1;
-                ext_desc_inc_tile( &dpt[0][tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
-
-                tile = ix;
-                ext_desc_inc_tile( &dpt[0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[0][block*8],     ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[0][(block+1)*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
     }
@@ -122,19 +116,15 @@ void ext_desc_notile_sub( const float                  x,
         {
             if( block == 0 )
             {
-                const int ix = 0;
+                const int ix = block;
                 const int offx = ix*8+xd;
                 const int offy = iy*8+yd;
                 float mod, th;
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
-                int tile;
 
-                tile = ix;
-                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
-
-                tile = ix;
-                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?0:1][block*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?1:0][block*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
 
             {
@@ -144,19 +134,11 @@ void ext_desc_notile_sub( const float                  x,
                 float mod, th;
                 ext_desc_get_grad( x, y, level, texLinear, cos_t, sin_t, SBP, offx, offy, mod, th );
                 float ww = d_consts.desc_gauss[offy][offx];
-                int tile;
 
-                tile = ix-1;
-                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix-1, iy-1, xd+8, yd+8, th, mod, ww );
-
-                tile = ix;
-                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
-
-                tile = ix-1;
-                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
-
-                tile = ix;
-                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?0:1][block*8],     ix-1, iy-1, xd+8, yd+8, th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?0:1][(block+1)*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?1:0][block*8],     ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[iy&1?1:0][(block+1)*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
 
