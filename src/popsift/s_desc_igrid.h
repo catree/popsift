@@ -16,12 +16,15 @@
  */
 __global__
 void ext_desc_igrid( popsift::Extremum*     extrema,
+                     const int              num,
                      popsift::Descriptor*   descs,
                      int*                   feat_to_ext_map,
                      cudaTextureObject_t    texLinear );
 
 namespace popsift
 {
+
+#define IGRID_NUMLINES 1
 
 inline static bool start_ext_desc_igrid( Octave& oct_obj )
 {
@@ -34,12 +37,13 @@ inline static bool start_ext_desc_igrid( Octave& oct_obj )
     if( grid.x == 0 ) return false;
 
     block.x = 16;
-    block.y = 4;
-    block.z = 4;
+    block.y = 16;
+    block.z = IGRID_NUMLINES;
 
     ext_desc_igrid
         <<<grid,block,0,oct_obj.getStream()>>>
         ( oct_obj.getExtrema( ),
+          oct_obj.getFeatVecCountH( ),
           oct_obj.getDescriptors( ),
           oct_obj.getFeatToExtMapD( ),
           oct_obj.getDataTexLinear( ) );
@@ -62,12 +66,13 @@ void start_ext_desc_igrid( int*                featvec_counter,
     if( grid.x == 0 ) return;
 
     block.x = 16;
-    block.y = 4;
-    block.z = 4;
+    block.y = 16;
+    block.z = IGRID_NUMLINES;
 
     ext_desc_igrid
         <<<grid,block>>>
         ( extrema,
+          *featvec_counter,
           descs,
           feat_to_ext_map,
           texLinear );
