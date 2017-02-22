@@ -71,11 +71,11 @@ void ext_desc_notile_sub( const float                  x,
                           float* __restrict__          features,
                           cudaTextureObject_t          texLinear )
 {
-    float dpt[64];
+    float dpt[2][32];
 
     {
         int iy = 0;
-        memset( &dpt[0], 0, 32*sizeof(float) );
+        memset( dpt[0], 0, 32*sizeof(float) );
         for( int ix=0; ix<5; ix++ ) {
             for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
                 const int xd = threadIdx.x & (8-1);
@@ -87,17 +87,15 @@ void ext_desc_notile_sub( const float                  x,
                 int tile;
 
                 tile = ix-1;
-                ext_desc_inc_tile( &dpt[tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[0][tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
 
                 tile = ix;
-                ext_desc_inc_tile( &dpt[tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                ext_desc_inc_tile( &dpt[0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
     }
     for( int iy=1; iy<5; iy++ ) {
-        const int last_row = ( ( iy-1 ) & 1 ) * 4;
-        const int this_row = (   iy     & 1 ) * 4;
-        memset( &dpt[this_row*8], 0, 32*sizeof(float) );
+        memset( dpt[iy&1?1:0], 0, 32*sizeof(float) );
         for( int ix=0; ix<5; ix++ ) {
             for( int yd = threadIdx.x / 8; yd < 8; yd += 4 ) {
                 const int xd = threadIdx.x & (8-1);
@@ -108,36 +106,35 @@ void ext_desc_notile_sub( const float                  x,
                 float ww = d_consts.desc_gauss[offy][offx];
                 int tile;
 
-                tile = last_row + ix-1;
-                ext_desc_inc_tile( &dpt[tile*8], ix-1, iy-1, xd+8, yd+8, th, mod, ww );
+                tile = ix-1;
+                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix-1, iy-1, xd+8, yd+8, th, mod, ww );
 
-                tile = last_row + ix;
-                ext_desc_inc_tile( &dpt[tile*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
+                tile = ix;
+                ext_desc_inc_tile( &dpt[iy&1?0:1][tile*8], ix,   iy-1, xd,   yd+8, th, mod, ww );
 
-                tile = this_row + ix-1;
-                ext_desc_inc_tile( &dpt[tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
+                tile = ix-1;
+                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix-1, iy,   xd+8, yd,   th, mod, ww );
 
-                tile = this_row + ix;
-                ext_desc_inc_tile( &dpt[tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
+                tile = ix;
+                ext_desc_inc_tile( &dpt[iy&1?1:0][tile*8], ix,   iy,   xd,   yd,   th, mod, ww );
             }
         }
 
         __syncthreads();
 
         for( int i=0; i<32; i++ ) {
-            const int o = last_row * 8 + i;
-            float d = dpt[o];
+            float d = dpt[iy&1?0:1][i];
             d += __shfl_xor( d,  1 );
             d += __shfl_xor( d,  2 );
             d += __shfl_xor( d,  4 );
             d += __shfl_xor( d,  8 );
             d += __shfl_xor( d, 16 );
-            dpt[o] = d;
+            dpt[iy&1?0:1][i] = d;
         }
 
         __syncthreads();
 
-        features[(iy-1)*32+threadIdx.x] = dpt[last_row*8+threadIdx.x];
+        features[(iy-1)*32+threadIdx.x] = dpt[iy&1?0:1][threadIdx.x];
     }
 }
 
