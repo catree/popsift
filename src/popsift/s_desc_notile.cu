@@ -110,7 +110,10 @@ void ext_desc_notile_sub( const float                  x,
             }
         }
     }
+    /* until here, thread (block,xd) has written into [0][block..block+1][0..7] */
+
     __syncthreads();
+
     for( int iy=1; iy<5; iy++ )
     {
         memset( dpt[iy&1?1:0][0], 0, 8*sizeof(float) );
@@ -147,20 +150,31 @@ void ext_desc_notile_sub( const float                  x,
             }
         }
 
-        __syncthreads();
+        /* Until here, thread (block,xd) has written into [0..1][block..block+1][0..7]
+         * This means that we waste comparisons in the following, since the range
+         *     d[0..1][0..block-1][0..8] and
+         *     d[0..1][block+2..3][0..8]
+         * are actually empty.
+         */
 
         __shared__ float sdpt[4][8];
 
-        for( int block=0; block<4; block++ ) {
+        sdpt[block][xd] = 0.0f;
+
+        __syncthreads();
+
+        // for( int b=0; b<4; b++ )
+        for( int b=0; b<4; b++ )
+        {
             for( int i=0; i<8; i++ ) {
-                float d = dpt[iy&1?0:1][block][i];
+                float d = (b==block||b==block+1) ? dpt[iy&1?0:1][b][i] : 0;
                 d += __shfl_xor( d,  1 );
                 d += __shfl_xor( d,  2 );
                 d += __shfl_xor( d,  4 );
                 d += __shfl_xor( d,  8 );
                 d += __shfl_xor( d, 16 );
-                if( threadIdx.x == 0 ) {
-                    sdpt[block][i] = d;
+                if( threadIdx.x == block ) {
+                    sdpt[b][i] = d;
                 }
             }
         }
