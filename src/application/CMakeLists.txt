@@ -14,17 +14,28 @@ endif()
 
 find_package(Boost 1.53.0 REQUIRED COMPONENTS system program_options filesystem)
 
+find_package(DevIL REQUIRED COMPONENTS IL ILU) # yields IL_FOUND, IL_LIBRARIES, IL_INCLUDE_DIR
+
 add_executable(popsift-demo
                main.cpp
 	       pgmread.cpp pgmread.h)
-target_compile_definitions(popsift-demo PRIVATE ${Boost_DEFINITIONS} BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB)
 
-target_include_directories(popsift-demo PUBLIC ${Boost_INCLUDE_DIRS})
-target_compile_definitions(popsift-demo PRIVATE BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB)
+if(IL_FOUND)
+  message(STATUS "DevIL found")
+  target_compile_options(popsift-demo PRIVATE -DUSE_DEVIL)
+  target_include_directories(popsift-demo PUBLIC ${Boost_INCLUDE_DIRS} ${IL_INCLUDE_DIR})
+  target_compile_definitions(popsift-demo PRIVATE ${Boost_DEFINITIONS} BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB)
+  target_link_libraries(popsift-demo PUBLIC PopSift::popsift ${Boost_LIBRARIES} ${CUDA_CUDADEVRT_LIBRARY} ${IL_LIBRARIES} ${ILU_LIBRARIES})
+else(IL_FOUND)
+  message(STATUS "DevIL not found")
+  target_include_directories(popsift-demo PUBLIC ${Boost_INCLUDE_DIRS})
+  target_compile_definitions(popsift-demo PRIVATE ${Boost_DEFINITIONS} BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB)
+  target_link_libraries(popsift-demo PUBLIC PopSift::popsift ${Boost_LIBRARIES} ${CUDA_CUDADEVRT_LIBRARY})
+endif(IL_FOUND)
+
 if(NOT WIN32)
   target_compile_options(popsift-demo PRIVATE -std=c++11)
 endif()
-target_link_libraries(popsift-demo PUBLIC PopSift::popsift ${Boost_LIBRARIES} ${CUDA_CUDADEVRT_LIBRARY})
 
 # set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 set_target_properties(popsift-demo PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )

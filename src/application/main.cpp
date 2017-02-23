@@ -13,6 +13,8 @@
 #include <iomanip>
 #include <stdlib.h>
 #include <stdexcept>
+#include <list>
+#include <string>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -21,7 +23,11 @@
 #include <popsift/sift_conf.h>
 #include <popsift/common/device_prop.h>
 
+#ifdef USE_DEVIL
+#include <devil_cpp_wrapper.hpp>
+#else
 #include "pgmread.h"
+#endif
 
 using namespace std;
 
@@ -113,16 +119,95 @@ static void parseargs(int argc, char** argv, popsift::Config& config, string& in
 }
 
 
+static void collectFilenames( list<string>& inputFiles, const boost::filesystem::path& inputFile )
+{
+    vector<boost::filesystem::path> vec;
+    std::copy( boost::filesystem::directory_iterator( inputFile ),
+               boost::filesystem::directory_iterator(),
+               std::back_inserter(vec) );
+    for( auto it = vec.begin(); it!=vec.end(); it++ ) {
+        if( boost::filesystem::is_regular_file( *it ) ) {
+            string s( it->c_str() );
+            inputFiles.push_back( s );
+        } else if( boost::filesystem::is_directory( *it ) ) {
+            collectFilenames( inputFiles, *it );
+        }
+    }
+}
+
+void process_image( const string& inputFile, PopSift& PopSift )
+{
+    int w;
+    int h;
+    unsigned char* image_data;
+#ifdef USE_DEVIL
+    ilImage img;
+    if( img.Load( inputFile.c_str() ) == false ) {
+        cerr << "Could not load image " << inputFile << endl;
+        return;
+    }
+    if( img.Convert( IL_LUMINANCE ) == false ) {
+        cerr << "Failed converting image " << inputFile << " to unsigned greyscale image" << endl;
+        exit( -1 );
+    }
+    w = img.Width();
+    h = img.Height();
+    image_data = img.GetData();
+#else
+    image_data = readPGMfile( inputFile, w, h );
+    if( image_data == 0 ) {
+        exit( -1 );
+    }
+#endif
+
+#if 1
+    cerr << "Input image size: "
+         << w << " X " << h
+         // << " filename: " << boost::filesystem::path(inputFile).filename() << endl;
+         << " filename: " << inputFile << endl;
+#endif
+
+    cudaEvent_t extract_end, init_end, init_start;
+    cudaEventCreate( &init_start );
+    cudaEventCreate( &init_end );
+    cudaEventCreate( &extract_end );
+
+    cudaEventRecord( init_start, 0 ); cudaEventSynchronize( init_start );
+    PopSift.init( 0, w, h, print_time_info );
+    cudaEventRecord( init_end, 0 ); cudaEventSynchronize( init_end );
+    popsift::Features* feature_list = PopSift.execute( 0, image_data, print_time_info );
+    cudaEventRecord( extract_end, 0 ); cudaEventSynchronize( extract_end );
+
+    float i_ms;
+    float op_ms;
+    cudaEventElapsedTime( &i_ms, init_start, init_end );
+    cudaEventElapsedTime( &op_ms, init_end, extract_end );
+    cudaEventDestroy( extract_end );
+    cerr << "Time to init       " << setprecision(3) << i_ms  << "ms" << endl;
+    cerr << "Time to extract    " << setprecision(3) << op_ms << "ms" << endl;
+
+    std::ofstream of( "output-features.txt" );
+    feature_list->print( of, write_as_uchar );
+    delete feature_list;
+
+#ifdef USE_DEVIL
+    img.Clear();
+#else
+    delete [] image_data;
+#endif
+}
+
 int main(int argc, char **argv)
 {
     cudaDeviceReset();
 
     popsift::Config config;
+    list<string>   inputFiles;
     string         inputFile = "";
     const char*    appName   = argv[0];
 
     try {
-        parseargs(argc, argv, config, inputFile); // Parse command line
+        parseargs( argc, argv, config, inputFile ); // Parse command line
         std::cout << inputFile << std::endl;
     }
     catch (std::exception& e) {
@@ -130,57 +215,49 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int w;
-    int h;
-    unsigned char* image_data = readPGMfile( inputFile, w, h );
-    if( image_data == 0 ) {
-        exit( -1 );
+    if( boost::filesystem::exists( inputFile ) ) {
+        if( boost::filesystem::is_directory( inputFile ) ) {
+            cout << "BOOST " << inputFile << " is directory" << endl;
+            collectFilenames( inputFiles, inputFile );
+            if( inputFiles.empty() ) {
+                cerr << "No files in directory, nothing to do" << endl;
+                exit( 0 );
+            }
+        } else if( boost::filesystem::is_regular_file( inputFile ) ) {
+            inputFiles.push_back( inputFile );
+        } else {
+            cout << "Input file is neither regular file nor directory, nothing to do" << endl;
+            exit( -1 );
+        }
     }
-
-    // cerr << "Input image size: "
-    //      << w << "X" << h
-    //      << " filename: " << boost::filesystem::path(inputFile).filename() << endl;
 
     popsift::cuda::device_prop_t deviceInfo;
     deviceInfo.set( 0, print_dev_info );
     if( print_dev_info ) deviceInfo.print( );
 
-    cudaEvent_t start;
+    cudaEvent_t init_start;
     cudaEvent_t init_end;
-    cudaEvent_t extract_end;
-    cudaEventCreate( &start );
+    cudaEventCreate( &init_start );
     cudaEventCreate( &init_end );
-    cudaEventCreate( &extract_end );
     cudaDeviceSynchronize();
-    cudaEventRecord( start, 0 );
+    cudaEventRecord( init_start, 0 );
 
     PopSift PopSift( config );
 
-    cudaDeviceSynchronize();
     cudaEventRecord( init_end, 0 );
-
-    PopSift.init( 0, w, h, print_time_info );
-    popsift::Features* feature_list = PopSift.execute( 0, image_data, print_time_info );
-
     cudaDeviceSynchronize();
-    cudaEventRecord( extract_end, 0 );
-    cudaEventSynchronize( extract_end );
     float init_ms;
-    float op_ms;
-    cudaEventElapsedTime( &init_ms, start, init_end );
-    cudaEventElapsedTime( &op_ms, init_end, extract_end );
-    cudaEventDestroy( start );
+    cudaEventElapsedTime( &init_ms, init_start, init_end );
+    cudaEventDestroy( init_start );
     cudaEventDestroy( init_end );
-    cudaEventDestroy( extract_end );
-    cerr << "Time to initialize " << setprecision(3) << init_ms << "ms" << endl;
-    cerr << "Time to extract    " << setprecision(3) << op_ms << "ms" << endl;
+    cerr << "Time to create " << setprecision(3) << init_ms << "ms" << endl;
+
+    for( auto it = inputFiles.begin(); it!=inputFiles.end(); it++ ) {
+        inputFile = it->c_str();
+
+        process_image( inputFile, PopSift );
+    }
 
     PopSift.uninit( 0 );
-
-    std::ofstream of( "output-features.txt" );
-    feature_list->print( of, write_as_uchar );
-    delete feature_list;
-
-    delete [] image_data;
-    return 0;
 }
+
