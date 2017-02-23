@@ -226,8 +226,8 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
 
         assert( block.x * block.y * block.z < 1024 );
         
-        cerr << "calling relative with " << block.x * block.y * block.z << " threads per block" << endl
-             << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
+        // cerr << "calling relative with " << block.x * block.y * block.z << " threads per block" << endl
+             // << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
 
         const float tshift = 0.5f * powf( 2.0f, conf.getUpscaleFactor() );
 
@@ -252,8 +252,8 @@ inline void make_octave_sub( const Config& conf, Image* base, Octave& oct_obj, c
 
         assert( block.x * block.y * block.z < 1024 );
 
-        cerr << "calling absolute with " << block.x * block.y * block.z << " threads per block" << endl
-             << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
+        // cerr << "calling absolute with " << block.x * block.y * block.z << " threads per block" << endl
+             // << "                 and  " << grid.x * grid.y * grid.z << " blocks" << endl;
 
         gauss::fixedSpan::absoluteTexAddress::octave_fixed
             <SHIFT,w_conf,h_conf,l_conf>
