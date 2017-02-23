@@ -15,13 +15,37 @@ class NormalizeRootSift
 {
 public:
     __device__ static inline
-    void normalize( int offset, const float* features, int num_orientations );
+    void normalize( int offset, float* features, int num_orientations );
+
+    __device__ static inline
+    void normalize_restrict( const float* __restrict__ src_desc,
+                             float* __restrict__       dest_desc );
+
+    __device__ static inline
+    void normalize( const float* src_desc,
+                    float*       dest_desc,
+                    const  bool  ignoreme );
 };
 
 __device__ inline
-void NormalizeRootSift::normalize( int offset, const float* features, int num_orientations )
+void NormalizeRootSift::normalize( int offset, float* features, int num_orientations )
 {
-    float4* ptr4 = (float4*)features;
+    const bool ignoreme = ( offset >= num_orientations );
+
+    normalize( features, features, ignoreme );
+}
+
+__device__ inline
+void NormalizeRootSift::normalize_restrict( const float* __restrict__ src_desc,
+                                            float* __restrict__       dst_desc )
+{
+    normalize( src_desc, dst_desc, false );
+}
+
+__device__ inline
+void NormalizeRootSift::normalize( const float* src_desc, float* dst_desc, const bool ignoreme )
+{
+    const float4* ptr4 = (const float4*)src_desc;
 
     float4 descr;
     descr = ptr4[threadIdx.x];
@@ -62,10 +86,9 @@ void NormalizeRootSift::normalize( int offset, const float* features, int num_or
     descr.w = val;
 #endif
 
-    const bool ignoreme = ( offset >= num_orientations );
-
     if( not ignoreme ) {
-        ptr4[threadIdx.x] = descr;
+        float4* out4 = (float4*)dst_desc;
+        out4[threadIdx.x] = descr;
     }
 }
 

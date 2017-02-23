@@ -139,11 +139,11 @@ __global__ void ext_desc_igrid_starter( int*                featvec_counter,
 #if __CUDA_ARCH__ > 350
     if( *featvec_counter == 0 ) return;
 
-    start_ext_desc_grid( featvec_counter,
-                         extrema,
-                         descs,
-                         feat_to_ext_map,
-                         layer_tex );
+    start_ext_desc_igrid( featvec_counter,
+                          extrema,
+                          descs,
+                          feat_to_ext_map,
+                          layer_tex );
 
     ext_norm_starter( featvec_counter, descs, use_root_sift );
 #else // __CUDA_ARCH__ > 350
@@ -161,13 +161,21 @@ __global__ void ext_desc_notile_starter( int*                featvec_counter,
 #if __CUDA_ARCH__ > 350
     if( *featvec_counter == 0 ) return;
 
-    start_ext_desc_grid( featvec_counter,
-                         extrema,
-                         descs,
-                         feat_to_ext_map,
-                         layer_tex );
+    if( use_root_sift ) {
+        start_ext_desc_notile<NormalizeRootSift>( featvec_counter,
+                                                  extrema,
+                                                  descs,
+                                                  feat_to_ext_map,
+                                                  layer_tex );
+    } else {
+        start_ext_desc_notile<NormalizeL2>( featvec_counter,
+                                            extrema,
+                                            descs,
+                                            feat_to_ext_map,
+                                            layer_tex );
+    }
 
-    ext_norm_starter( featvec_counter, descs, use_root_sift );
+    // ext_norm_starter( featvec_counter, descs, use_root_sift );
 #else // __CUDA_ARCH__ > 350
     printf( "Dynamic Parallelism requires a card with Compute Capability 3.5 or higher\n" );
 #endif // __CUDA_ARCH__ > 350
@@ -334,7 +342,8 @@ void Pyramid::descriptors( const Config& conf )
         }
 
         for( int octave=0; octave<_num_octaves; octave++ ) {
-            Octave&      oct_obj = _octaves[octave];
+            bool    already_normalized = false;
+            Octave& oct_obj = _octaves[octave];
 
             dim3 block;
             dim3 grid;
@@ -359,13 +368,37 @@ cudaEventRecord( desc_start_ev, oct_obj.getStream() );
                 } else if( conf.getDescMode() == Config::IGrid ) {
                     start_ext_desc_igrid( oct_obj );
                 } else if( conf.getDescMode() == Config::NoTile ) {
-                    start_ext_desc_notile( oct_obj );
+                    if( conf.getUseRootSift() ) {
+                        start_ext_desc_notile<NormalizeRootSift>( oct_obj );
+                    } else {
+                        start_ext_desc_notile<NormalizeL2>( oct_obj );
+                    }
+                    already_normalized = true;
                 } else if( conf.getDescMode() == Config::PLGrid ) {
                     start_ext_desc_pl_grid( oct_obj );
                 } else if( conf.getDescMode() == Config::PLIGrid ) {
                     start_ext_desc_pl_igrid( oct_obj );
                 } else {
                     POP_FATAL( "not yet" );
+                }
+
+                if( not already_normalized ) {
+                    grid.x  = grid_divide( oct_obj.getFeatVecCountH( ), 32 );
+                    block.x = 32;
+                    block.y = 32;
+                    block.z = 1;
+
+                    if( conf.getUseRootSift() ) {
+                        normalize_histogram<NormalizeRootSift>
+                            <<<grid,block,0,oct_obj.getStream( )>>>
+                            ( oct_obj.getDescriptors( ),
+                              oct_obj.getFeatVecCountH( ) );
+                    } else {
+                        normalize_histogram<NormalizeL2>
+                            <<<grid,block,0,oct_obj.getStream( )>>>
+                            ( oct_obj.getDescriptors( ),
+                              oct_obj.getFeatVecCountH( ) );
+                    }
                 }
 if( octave < 2 ) {
 float ms;
@@ -376,23 +409,6 @@ cudaEventDestroy( desc_start_ev );
 cudaEventDestroy( desc_stop_ev );
 cerr << "Time for desc in octave " << octave << ": " << setprecision(6) << ms*1000.0f << "us" << endl;
 }
-
-                grid.x  = grid_divide( oct_obj.getFeatVecCountH( ), 32 );
-                block.x = 32;
-                block.y = 32;
-                block.z = 1;
-
-                if( conf.getUseRootSift() ) {
-                    normalize_histogram<NormalizeRootSift>
-                        <<<grid,block,0,oct_obj.getStream( )>>>
-                        ( oct_obj.getDescriptors( ),
-                          oct_obj.getFeatVecCountH( ) );
-                } else {
-                    normalize_histogram<NormalizeL2>
-                        <<<grid,block,0,oct_obj.getStream( )>>>
-                        ( oct_obj.getDescriptors( ),
-                          oct_obj.getFeatVecCountH( ) );
-                }
             }
         }
     }

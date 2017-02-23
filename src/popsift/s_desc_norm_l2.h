@@ -16,26 +16,49 @@ class NormalizeL2
 public:
     __device__ static inline
     void normalize( int offset, float* features, int num_orientations );
+
+    __device__ static inline
+    void normalize_restrict( const float* __restrict__ src_desc,
+                             float* __restrict__       dest_desc );
+
+    __device__ static inline
+    void normalize( const float* src_desc,
+                    float*       dest_desc,
+                    const  bool  ignoreme );
 };
 
 __device__ inline
 void NormalizeL2::normalize( int offset, float* features, int num_orientations )
 {
-    float4* ptr4 = (float4*)features;
+    const bool ignoreme = ( offset >= num_orientations );
+
+    normalize( features, features, ignoreme );
+}
+
+__device__ inline
+void NormalizeL2::normalize_restrict( const float* __restrict__ src_desc,
+                                      float* __restrict__       dst_desc )
+{
+    normalize( src_desc, dst_desc, false );
+}
+
+__device__ inline
+void NormalizeL2::normalize( const float* src_desc, float* dst_desc, const bool ignoreme )
+{
+    const float4* ptr4 = (const float4*)src_desc;
 
     float4 descr;
     descr = ptr4[threadIdx.x];
 
-#undef HAVE_NORMF
+#if __CUDACC_VER__ >= 70500
     // normf() is an elegant function: sqrt(sum_0^127{v^2})
     // It exists from CUDA 7.5 but the trouble with CUB on the GTX 980 Ti forces
     // us to with CUDA 7.0 right now
 
-#ifdef HAVE_NORMF
     float norm;
 
     if( threadIdx.x == 0 ) {
-        norm = normf( 128, ptr1 );
+        norm = normf( 128, src_desc );
     }
 
     norm = __shfl( norm,  0 );
@@ -46,7 +69,7 @@ void NormalizeL2::normalize( int offset, float* features, int num_orientations )
     descr.w = min( descr.w, 0.2f*norm );
 
     if( threadIdx.x == 0 ) {
-        norm = scalbnf( rnormf( 128, ptr1 ), d_consts.norm_multi );
+        norm = scalbnf( rnormf( 128, src_desc ), d_consts.norm_multi );
     }
 #else
     float norm;
@@ -93,10 +116,9 @@ void NormalizeL2::normalize( int offset, float* features, int num_orientations )
     descr.z = descr.z * norm;
     descr.w = descr.w * norm;
 
-    const bool ignoreme = ( offset >= num_orientations );
-
     if( not ignoreme ) {
-        ptr4[threadIdx.x] = descr;
+        float4* out4 = (float4*)dst_desc;
+        out4[threadIdx.x] = descr;
     }
 }
 
