@@ -8,10 +8,22 @@
 #pragma once
 
 #include "sift_extremum.h"
+#include "s_desc_norm_l2.h"
+#include "s_desc_norm_rs.h"
 
+template<class T>
 __global__
-void normalize_histogram_root_sift( popsift::Descriptor* descs, int num_orientations );
+void normalize_histogram( Descriptor* descs, int num_orientations )
+{
+    int offset = blockIdx.x * 32 + threadIdx.y;
 
-__global__
-void normalize_histogram_l2( popsift::Descriptor* descs, int num_orientations );
+    // all of these threads are useless
+    if( blockIdx.x * 32 >= num_orientations ) return;
+
+    offset = ( offset < num_orientations ) ? offset
+                                           : num_orientations-1;
+    Descriptor* desc = &descs[offset];
+
+    T::normalize( offset, desc->features, num_orientations );
+}
 

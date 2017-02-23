@@ -110,13 +110,11 @@ void ext_desc_notile_sub( const float                  x,
     }
     /* until here, thread (block,xd) has written into [0][block..block+1][0..7] */
 
-    // __syncthreads();
+    // __shared__ float sdpt[NUMLINES][4][8];
+    __shared__ float sdpt[NUMLINES][128];
 
     for( int iy=1; iy<5; iy++ )
     {
-        __shared__ float sdpt[NUMLINES][4][8];
-        sdpt[threadIdx.z][block][xd] = 0.0f;
-        __syncthreads();
 
         memset( dpt[iy&1?1:0][0], 0, 8*sizeof(float) );
         memset( dpt[iy&1?1:0][1], 0, 8*sizeof(float) );
@@ -169,14 +167,14 @@ void ext_desc_notile_sub( const float                  x,
                 d += __shfl_xor( d,  8 );
                 d += __shfl_xor( d, 16 );
                 if( threadIdx.x == block ) {
-                    sdpt[threadIdx.z][b][i] = d;
+                    sdpt[threadIdx.z][(iy-1)*32 + b*8 + i] = d;
                 }
             }
         }
 
         __syncthreads();
 
-        features[(iy-1)*32+threadIdx.x] = sdpt[threadIdx.z][threadIdx.x/8][threadIdx.x%8];
+        features[(iy-1)*32+threadIdx.x] = sdpt[threadIdx.z][(iy-1)*32+threadIdx.x];
     }
 }
 

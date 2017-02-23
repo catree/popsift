@@ -53,10 +53,10 @@ inline static bool start_ext_desc_notile( Octave& oct_obj )
 
 __device__ inline
 void start_ext_desc_notile( int*                featvec_counter,
-                           Extremum*           extrema,
-                           Descriptor*         descs,
-                           int*                feat_to_ext_map,
-                           cudaTextureObject_t texLinear )
+                            Extremum*           extrema,
+                            Descriptor*         descs,
+                            int*                feat_to_ext_map,
+                            cudaTextureObject_t texLinear )
 {
 #if __CUDA_ARCH__ > 350
     dim3 block;

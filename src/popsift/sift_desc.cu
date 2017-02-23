@@ -44,11 +44,11 @@ void ext_norm_starter( int*                featvec_counter,
     block.z = 1;
 
     if( use_root_sift ) {
-        normalize_histogram_root_sift
+        normalize_histogram<NormalizeRootSift>
             <<<grid,block>>>
             ( descs, *featvec_counter );
     } else {
-        normalize_histogram_l2
+        normalize_histogram<NormalizeL2>
             <<<grid,block>>>
             ( descs, *featvec_counter );
     }
@@ -383,12 +383,12 @@ cerr << "Time for desc in octave " << octave << ": " << setprecision(6) << ms*10
                 block.z = 1;
 
                 if( conf.getUseRootSift() ) {
-                    normalize_histogram_root_sift
+                    normalize_histogram<NormalizeRootSift>
                         <<<grid,block,0,oct_obj.getStream( )>>>
                         ( oct_obj.getDescriptors( ),
                           oct_obj.getFeatVecCountH( ) );
                 } else {
-                    normalize_histogram_l2
+                    normalize_histogram<NormalizeL2>
                         <<<grid,block,0,oct_obj.getStream( )>>>
                         ( oct_obj.getDescriptors( ),
                           oct_obj.getFeatVecCountH( ) );
