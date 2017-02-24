@@ -117,60 +117,35 @@ Pyramid::Pyramid( Config& config,
     }
 }
 
+void Pyramid::resetDimensions( int width, int height )
+{
+    int w = width;
+    int h = height;
+
+    for (int o = 0; o<_num_octaves; o++) {
+        _octaves[o].resetDimensions( w, h );
+        w = ceilf(w / 2.0f);
+        h = ceilf(h / 2.0f);
+    }
+}
+
 Pyramid::~Pyramid()
 {
     delete[] _octaves;
 }
 
-#define LOGTIME_0(a)
-#define LOGTIME_1(a)
-
 Features* Pyramid::find_extrema( const Config& conf,
                                  Image*        base )
 {
-    LOGTIME_0( cudaEvent_t start );
-    LOGTIME_1( cudaEvent_t done_reset );
-    LOGTIME_1( cudaEvent_t done_pyramid );
-    LOGTIME_1( cudaEvent_t done_extrema );
-    LOGTIME_1( cudaEvent_t done_orientation );
-    LOGTIME_0( cudaEvent_t done_descriptors );
-    LOGTIME_0( cudaEvent_t done );
-
-    LOGTIME_0( cudaEventCreate( &start ) );
-    LOGTIME_1( cudaEventCreate( &done_reset ) );
-    LOGTIME_1( cudaEventCreate( &done_pyramid ) );
-    LOGTIME_1( cudaEventCreate( &done_extrema ) );
-    LOGTIME_1( cudaEventCreate( &done_orientation ) );
-    LOGTIME_0( cudaEventCreate( &done_descriptors ) );
-    LOGTIME_0( cudaEventCreate( &done ) );
-
-    LOGTIME_0( cudaDeviceSynchronize() );
-    LOGTIME_0( cudaEventRecord( start ) );
-
     reset_extrema_mgmt( );
-
-    LOGTIME_1( cudaDeviceSynchronize() );
-    LOGTIME_1( cudaEventRecord( done_reset ) );
 
     build_pyramid( conf, base );
 
-    LOGTIME_1( cudaDeviceSynchronize() );
-    LOGTIME_1( cudaEventRecord( done_pyramid ) );
-
     find_extrema( conf );
-
-    LOGTIME_1( cudaDeviceSynchronize() );
-    LOGTIME_1( cudaEventRecord( done_extrema ) );
 
     orientation( conf );
 
-    LOGTIME_1( cudaDeviceSynchronize() );
-    LOGTIME_1( cudaEventRecord( done_orientation ) );
-
     descriptors( conf );
-
-    LOGTIME_0( cudaDeviceSynchronize() );
-    LOGTIME_0( cudaEventRecord( done_descriptors ) );
 
     Features* features        = new Features;
     int       num_extrema     = 0;
@@ -185,40 +160,6 @@ Features* Pyramid::find_extrema( const Config& conf,
         num_extrema += _octaves[o].getExtremaCount();
         num_descriptors += _octaves[o].getDescriptorCount();
     }
-
-    LOGTIME_0( cudaDeviceSynchronize() );
-    LOGTIME_0( cudaEventRecord( done ) );
-
-    LOGTIME_0( cudaDeviceSynchronize() );
-    LOGTIME_1( float start_reset = 0 );
-    LOGTIME_1( float start_pyramid = 0 );
-    LOGTIME_1( float start_extrema = 0 );
-    LOGTIME_1( float start_orientation = 0 );
-    LOGTIME_0( float start_descriptors = 0 );
-    LOGTIME_0( float start_done = 0 );
-
-    LOGTIME_1( cudaEventElapsedTime( &start_reset, start, done_reset ) );
-    LOGTIME_1( cudaEventElapsedTime( &start_pyramid, start, done_pyramid ) );
-    LOGTIME_1( cudaEventElapsedTime( &start_extrema, start, done_extrema ) );
-    LOGTIME_1( cudaEventElapsedTime( &start_orientation, start, done_orientation ) );
-    LOGTIME_0( cudaEventElapsedTime( &start_descriptors, start, done_descriptors ) );
-    LOGTIME_0( cudaEventElapsedTime( &start_done, start, done ) );
-
-    LOGTIME_0( cerr << "Time passed from start to" << endl );
-    LOGTIME_1( cerr << " - reset:       " << start_reset << " ms" << endl );
-    LOGTIME_1( cerr << " - pyramid:     " << start_pyramid << " ms" << endl );
-    LOGTIME_1( cerr << " - extrema:     " << start_extrema << " ms" << endl );
-    LOGTIME_1( cerr << " - orientation: " << start_orientation << " ms" << endl );
-    LOGTIME_0( cerr << " - descriptors: " << start_descriptors << " ms" << endl );
-    LOGTIME_0( cerr << " - downloaded:  " << start_done << " ms" << endl );
-
-    LOGTIME_0( cudaEventDestroy( start ) );
-    LOGTIME_1( cudaEventDestroy( done_reset ) );
-    LOGTIME_1( cudaEventDestroy( done_pyramid ) );
-    LOGTIME_1( cudaEventDestroy( done_extrema ) );
-    LOGTIME_1( cudaEventDestroy( done_orientation ) );
-    LOGTIME_0( cudaEventDestroy( done_descriptors ) );
-    LOGTIME_0( cudaEventDestroy( done ) );
 
     features->_features.resize( num_extrema );
 

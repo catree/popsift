@@ -25,8 +25,8 @@ class Pyramid
     Octave* _octaves;
     int     _gauss_group;
 
-    bool                _assume_initial_blur;
-    float               _initial_blur;
+    bool    _assume_initial_blur;
+    float   _initial_blur;
 
 public:
     Pyramid( Config& config,
@@ -34,6 +34,8 @@ public:
              int     w,
              int     h );
     ~Pyramid( );
+
+    void resetDimensions( int width, int height );
 
     Features* find_extrema( const Config& conf,
                             Image*        base );

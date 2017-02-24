@@ -21,6 +21,8 @@ class Octave
 {
         int _w;
         int _h;
+        int _max_w;
+        int _max_h;
         int _debug_octave_id;
         int _levels;
         int _gauss_group;
@@ -85,6 +87,8 @@ class Octave
     public:
         Octave( );
         ~Octave( ) { this->free(); }
+
+        void resetDimensions( int w, int h );
 
         inline void debugSetOctave( uint32_t o ) { _debug_octave_id = o; }
 

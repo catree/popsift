@@ -152,6 +152,7 @@ void process_image( const string& inputFile, PopSift& PopSift )
     }
     w = img.Width();
     h = img.Height();
+    cout << "Loading " << w << " x " << h << " image " << inputFile << endl;
     image_data = img.GetData();
 #else
     image_data = readPGMfile( inputFile, w, h );
@@ -160,20 +161,13 @@ void process_image( const string& inputFile, PopSift& PopSift )
     }
 #endif
 
-#if 1
-    cerr << "Input image size: "
-         << w << " X " << h
-         // << " filename: " << boost::filesystem::path(inputFile).filename() << endl;
-         << " filename: " << inputFile << endl;
-#endif
-
     cudaEvent_t extract_end, init_end, init_start;
     cudaEventCreate( &init_start );
     cudaEventCreate( &init_end );
     cudaEventCreate( &extract_end );
 
     cudaEventRecord( init_start, 0 ); cudaEventSynchronize( init_start );
-    PopSift.init( 0, w, h, print_time_info );
+    PopSift.init( 0, w, h );
     cudaEventRecord( init_end, 0 ); cudaEventSynchronize( init_end );
     popsift::Features* feature_list = PopSift.execute( 0, image_data, print_time_info );
     cudaEventRecord( extract_end, 0 ); cudaEventSynchronize( extract_end );

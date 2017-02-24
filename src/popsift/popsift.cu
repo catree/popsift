@@ -65,18 +65,8 @@ bool PopSift::configure( const popsift::Config& config, bool force )
     return true;
 }
 
-bool PopSift::init( int pipe, int w, int h, bool checktime )
+bool PopSift::init( int pipe, int w, int h )
 {
-    if( _pipe[pipe]._inputImage != 0 ) return false;
-
-    cudaEvent_t start, end;
-    if( checktime ) {
-        cudaEventCreate( &start );
-        cudaEventCreate( &end );
-        cudaDeviceSynchronize();
-        cudaEventRecord( start, 0 );
-    }
-
     if( pipe < 0 && pipe >= MAX_PIPES ) {
         return false;
     }
@@ -88,6 +78,13 @@ bool PopSift::init( int pipe, int w, int h, bool checktime )
     float upscaleFactor = _config.getUpscaleFactor();
     float scaleFactor = 1.0f / powf( 2.0f, -upscaleFactor );
 
+    if( _pipe[pipe]._inputImage != 0 ) {
+        _pipe[pipe]._inputImage->resetDimensions( w, h );
+        _pipe[pipe]._pyramid   ->resetDimensions( ceilf( w * scaleFactor ),
+                                                  ceilf( h * scaleFactor ) );
+        return false;
+    }
+
     if( _config.octaves < 0 ) {
         int oct = _config.octaves;
         oct = max(int (floor( logf( (float)min( w, h ) )
@@ -97,20 +94,11 @@ bool PopSift::init( int pipe, int w, int h, bool checktime )
 
     _pipe[pipe]._inputImage = new popsift::Image( w, h );
     _pipe[pipe]._pyramid = new popsift::Pyramid( _config,
-                                                _pipe[pipe]._inputImage,
-                                                ceilf( w * scaleFactor ),
-                                                ceilf( h * scaleFactor ) );
+                                                 _pipe[pipe]._inputImage,
+                                                 ceilf( w * scaleFactor ),
+                                                 ceilf( h * scaleFactor ) );
 
     cudaDeviceSynchronize();
-
-    if( checktime ) {
-        cudaEventRecord( end, 0 );
-        cudaEventSynchronize( end );
-        float elapsedTime;
-        cudaEventElapsedTime( &elapsedTime, start, end );
-
-        cerr << "Initialization of pipe " << pipe << " took " << elapsedTime << " ms" << endl;
-    }
 
     return true;
 }

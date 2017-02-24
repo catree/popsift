@@ -43,7 +43,7 @@ public:
     /* provide the configuration if you used the PopSift constructor */
     bool configure( const popsift::Config& config, bool force = false );
 
-    bool init( int pipe, int w, int h, bool checktime = false );
+    bool init( int pipe, int w, int h );
 
     void uninit( int pipe );
 
